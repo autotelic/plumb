@@ -10,18 +10,11 @@ function isConstAssertion(type: ESTree.TSType): boolean {
 	);
 }
 
-function hasAdjacentSafetyComment(context: unknown, node: ESTree.Node): boolean {
-	const sourceCode = (context as { sourceCode: { getCommentsBefore(n: ESTree.Node): Array<{ value: string }> } }).sourceCode;
-	return sourceCode
-		.getCommentsBefore(node)
-		.some((comment) => /\bSAFETY\s*:/u.test(comment.value));
+interface CommentLike {
+	value: string;
 }
 
-interface CastWrapperMatch {
-	name: string;
-}
-
-/** Whether a function-like body consists solely of returning an as-cast — a laundering wrapper. */
+/** Whether a function-like body consists solely of returning an as-cast. */
 function isSoleReturnOfAssertion(body: ESTree.Node | null | undefined): boolean {
 	if (body === null || body === undefined) return false;
 	if (body.type === "BlockStatement") {
@@ -32,11 +25,12 @@ function isSoleReturnOfAssertion(body: ESTree.Node | null | undefined): boolean 
 	return body.type === "TSAsExpression";
 }
 
-/**
- * Type assertions erase evidence. `as const` is exempt, and a `// SAFETY:`
- * comment documents the rare verified invariant. Wrapper functions that exist
- * only to perform a cast are laundering, not narrowing.
- */
+/** Whether the assertion node has an adjacent `// SAFETY:` justification. */
+function hasAdjacentSafetyComment(sourceCode: { getCommentsBefore(n: ESTree.Node): Array<CommentLike> }, node: ESTree.Node): boolean {
+	return sourceCode.getCommentsBefore(node).some((comment) => /\bSAFETY\s*:/u.test(comment.value));
+}
+
+/** Type assertions erase evidence; `as const` is exempt and `// SAFETY:` documents rare verified invariants. */
 export const noReinterpretCastRule = defineRule({
 	meta: {
 		type: "problem",
@@ -46,20 +40,20 @@ export const noReinterpretCastRule = defineRule({
 		},
 		messages: {
 			noReinterpret:
-				"Type assertion discards type evidence. Narrow with discriminants/`in` checks or a type predicate instead; if the engine's types genuinely cannot express the shape, justify with a `// SAFETY:` comment directly above.",
+				"Type assertion discards type evidence. Narrow with discriminants/`in` checks or a type predicate instead.",
 			noLaundering:
-				"`{{name}}` exists only to perform a type assertion — a laundering wrapper that hides the cast from review and tooling. Inline the narrowing behind a real type predicate instead.",
+				"`{{name}}` exists only to perform a type assertion — a laundering wrapper that hides the cast from review and tooling.",
 		},
 	},
 	createOnce(context) {
 		return {
 			TSAsExpression(node) {
 				if (isConstAssertion(node.typeAnnotation)) return;
-				if (hasAdjacentSafetyComment(context, node)) return;
+				if (hasAdjacentSafetyComment(context.sourceCode, node)) return;
 				context.report({ node, messageId: "noReinterpret" });
 			},
 			TSTypeAssertion(node) {
-				if (hasAdjacentSafetyComment(context, node)) return;
+				if (hasAdjacentSafetyComment(context.sourceCode, node)) return;
 				context.report({ node, messageId: "noReinterpret" });
 			},
 			FunctionDeclaration(node) {
