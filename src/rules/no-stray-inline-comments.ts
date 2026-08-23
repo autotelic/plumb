@@ -36,6 +36,8 @@ export const noStrayInlineCommentsRule = defineRule({
 		return {
 			before() {
 				if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
+				// Per-file lifecycle: ranges are file-relative and must not accumulate.
+				bodyRanges.length = 0;
 			},
 			FunctionDeclaration(node) {
 				recordBody(node.body);
