@@ -11,7 +11,7 @@ function literalUnionKey(annotation: ESTree.TSType): string[] | null {
 		if (typeof member.literal.value !== "string") return null;
 		literals.push(member.literal.value);
 	}
-	return [...literals].sort();
+	return [...literals].sort((a, b) => a.localeCompare(b));
 }
 
 /**

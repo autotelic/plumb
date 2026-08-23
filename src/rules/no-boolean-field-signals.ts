@@ -150,13 +150,10 @@ function isBooleanMember(member: ESTree.TSSignature): boolean {
 }
 
 /** Accept both `{ members }` and flattened `{ body }` shapes for an interface/type-literal body. */
-function memberList(bodyNode: unknown): ESTree.TSSignature[] {
-	if (Array.isArray(bodyNode)) return bodyNode as ESTree.TSSignature[];
-	const record = bodyNode as { members?: unknown; body?: unknown } | null;
-	if (record === null || typeof record !== "object") return [];
-	if (Array.isArray(record.members)) return record.members as ESTree.TSSignature[];
-	if (Array.isArray(record.body)) return record.body as ESTree.TSSignature[];
-	return [];
+function memberList(bodyNode: ESTree.TSInterfaceBody | ESTree.TSTypeLiteral): ESTree.TSSignature[] {
+	// Interface bodies nest members under `body`; type literals expose them directly.
+	const members = "body" in bodyNode ? bodyNode.body : bodyNode.members;
+	return [...members];
 }
 
 /** Ban predicate families that re-derive classification, and un-guarded construction. */

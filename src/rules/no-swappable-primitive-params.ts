@@ -5,21 +5,21 @@ import type { ESTree } from "@oxlint/plugins";
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
 
 /** Keyword node type -> spelled-out primitive for messages. */
-const PRIMITIVE_KEYWORDS: Readonly<Record<string, string>> = {
-	TSStringKeyword: "string",
-	TSNumberKeyword: "number",
-	TSBooleanKeyword: "boolean",
-	TSBigIntKeyword: "bigint",
-};
+const PRIMITIVE_KEYWORDS = new Map<string, string>([
+	["TSStringKeyword", "string"],
+	["TSNumberKeyword", "number"],
+	["TSBooleanKeyword", "boolean"],
+	["TSBigIntKeyword", "bigint"],
+]);
 
-const PRIMITIVES: ReadonlySet<string> = new Set(Object.values(PRIMITIVE_KEYWORDS));
+const PRIMITIVES: ReadonlySet<string> = new Set(PRIMITIVE_KEYWORDS.values());
 
 /** Bare primitive annotation on a positional parameter, e.g. `userId: string`. */
 function barePrimitive(param: ESTree.BindingPattern): string | null {
 	if (param.type !== "Identifier") return null;
 	const annotation = param.typeAnnotation?.typeAnnotation;
 	if (typeof annotation !== "object" || annotation === null) return null;
-	return PRIMITIVE_KEYWORDS[annotation.type] ?? null;
+	return PRIMITIVE_KEYWORDS.get(annotation.type) ?? null;
 }
 
 function declaredStatement(statement: ESTree.Statement): ESTree.Node | null {
