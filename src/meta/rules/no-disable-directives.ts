@@ -27,7 +27,7 @@ export const noDisableDirectivesRule = defineRule({
 			},
 			"Program:exit"() {
 				if (program === null) return;
-				for (const comment of context.sourceCode.getAllComments() as Array<{ type: string; value: string }>) {
+				for (const comment of context.sourceCode.getAllComments()) {
 					if (!/^\s*oxlint-disable\b/u.test(comment.value)) continue;
 					context.report({ node: program, messageId: "suppressionDirective" });
 					return;
