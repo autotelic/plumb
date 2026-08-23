@@ -148,7 +148,7 @@ export const guardedOpMustReturnEffectRule = defineRule({
 });
 
 function checkFunctionReturn(
-	context: { report(options: unknown): void },
+	context: { report(diagnostic: { node: ESTree.Node; messageId: string; data?: Record<string, string> }): void },
 	node: ESTree.Function,
 	idName: string | null,
 ): void {
