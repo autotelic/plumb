@@ -23,7 +23,9 @@ function isRegExpTestCall(node: ESTree.CallExpression): boolean {
 	);
 }
 
-function isOptionGuardBinary(expression: ESTree.Expression): boolean {
+function isOptionGuardBinary(
+	expression: ESTree.Expression,
+): expression is ESTree.BinaryExpression {
 	if (expression.type !== "BinaryExpression") return false;
 	if (expression.operator !== "===" && expression.operator !== "!==") return false;
 	const sides = [expression.left, expression.right];

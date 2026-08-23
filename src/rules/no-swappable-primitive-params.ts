@@ -15,7 +15,7 @@ const PRIMITIVE_KEYWORDS = new Map<string, string>([
 const PRIMITIVES: ReadonlySet<string> = new Set(PRIMITIVE_KEYWORDS.values());
 
 /** Bare primitive annotation on a positional parameter, e.g. `userId: string`. */
-function barePrimitive(param: ESTree.BindingPattern): string | null {
+function barePrimitive(param: ESTree.BindingPattern | ESTree.ParamPattern): string | null {
 	if (param.type !== "Identifier") return null;
 	const annotation = param.typeAnnotation?.typeAnnotation;
 	if (annotation === undefined || annotation === null) return null;
@@ -30,7 +30,7 @@ function declaredStatement(statement: ESTree.Statement): ESTree.Node | null {
 }
 
 interface FnLike {
-	params: Array<ESTree.BindingPattern>;
+	params: ReadonlyArray<ESTree.BindingPattern | ESTree.ParamPattern>;
 }
 
 function swappableRuns(fn: FnLike): Array<{ primitive: string; count: number }> {
@@ -87,7 +87,7 @@ export const noSwappablePrimitiveParamsRule = defineRule({
 					const declaration = declaredStatement(statement);
 					if (declaration === null) continue;
 					if (declaration.type === "FunctionDeclaration" && declaration.id !== null) {
-						reportFn(declaration.id.name, declaration.id, declaration as unknown as FnLike);
+						reportFn(declaration.id.name, declaration.id, declaration);
 					}
 					if (declaration.type === "VariableDeclaration") {
 						for (const declarator of declaration.declarations) {
@@ -97,7 +97,7 @@ export const noSwappablePrimitiveParamsRule = defineRule({
 								init?.type === "ArrowFunctionExpression" ||
 								init?.type === "FunctionExpression"
 							) {
-								reportFn(declarator.id.name, declarator.id, init as unknown as FnLike);
+								reportFn(declarator.id.name, declarator.id, init);
 							}
 						}
 					}

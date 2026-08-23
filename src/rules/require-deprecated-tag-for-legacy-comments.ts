@@ -2,6 +2,8 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
 
+import { getAllComments } from "../shared/structural.ts";
+
 interface CommentLike {
 	type: string;
 	value: string;
@@ -29,7 +31,7 @@ export const requireDeprecatedTagForLegacyCommentsRule = defineRule({
 		return {
 			Program(node) {
 				// SAFETY: getAllComments returns engine comment objects matching CommentLike.
-				for (const comment of context.sourceCode.getAllComments() as CommentLike[]) {
+				for (const comment of getAllComments(context.sourceCode)) {
 					if (comment.type !== "Block") continue;
 					if (!LEGACY_PROSE.test(comment.value)) continue;
 					if (DEPRECATED_TAG.test(comment.value)) continue;

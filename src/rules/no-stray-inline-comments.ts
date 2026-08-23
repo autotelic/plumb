@@ -1,19 +1,13 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
-import { readField } from "../shared/structural.ts";
+
+import { type CommentLike, getAllComments } from "../shared/structural.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
 
 /** Directive and safety comments are tooling contracts, not prose. */
 const EXEMPT = /^(?:SAFETY:|eslint|oxlint|@ts-|ts-check|jscpd)/iu;
-
-interface CommentLike {
-	type: string;
-	value: string;
-	range?: [number, number];
-	loc?: { start?: { line?: number } };
-}
 
 /** Stray inline notes inside a function body belong in its JSDoc, not the code. */
 export const noStrayInlineCommentsRule = defineRule({
@@ -49,13 +43,13 @@ export const noStrayInlineCommentsRule = defineRule({
 			},
 			"Program:exit"() {
 				const lineComments = (
-					context.sourceCode.getAllComments() as CommentLike[]
+					getAllComments(context.sourceCode)
 				).filter((comment) => comment.type === "Line");
 				const exempt = new Set<CommentLike>();
 				lineComments.forEach((comment, index) => {
 					if (!EXEMPT.test(comment.value.trim())) return;
 					exempt.add(comment);
-					let previousEnd = (comment.loc as { end?: { line?: number } } | undefined)?.end?.line;
+					let previousEnd = comment.loc?.end?.line;
 					let cursor = index + 1;
 					while (
 						previousEnd !== undefined &&
@@ -65,7 +59,7 @@ export const noStrayInlineCommentsRule = defineRule({
 						const nextStart = next.loc?.start?.line;
 						if (nextStart === undefined || nextStart !== previousEnd + 1) break;
 						exempt.add(next);
-						previousEnd = (next.loc as { end?: { line?: number } } | undefined)?.end?.line;
+						previousEnd = next.loc?.end?.line;
 						cursor += 1;
 					}
 				});

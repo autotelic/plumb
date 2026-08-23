@@ -68,7 +68,7 @@ function annotationText(type: ESTree.TSType): string {
 			return type.types.map(annotationText).join(" ");
 		case "TSTupleType":
 			return type.elementTypes.map((element) => {
-				const payload = (element as { elementType?: ESTree.TSType }).elementType ?? element;
+				const payload = "elementType" in element ? element.elementType : element;
 				return annotationText(payload as ESTree.TSType);
 			}).join(" ");
 		case "TSTypeOperator":

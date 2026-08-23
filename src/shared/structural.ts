@@ -1,4 +1,4 @@
-import type { ESTree } from "@oxlint/plugins";
+import type { ESTree, SourceCode } from "@oxlint/plugins";
 
 /**
  * The closed domain of values reachable from ESTree node fields.
@@ -36,6 +36,37 @@ export function readField<T = NodeFieldValue>(
 /** Discriminate string-valued fields or expressions of an AST node. */
 export function isString(value: NodeFieldValue | ESTree.Expression): value is string {
 	return typeof value === "string";
+}
+
+/** Engine comment shape, normalized for rule consumption. */
+export interface CommentLike {
+	type: string;
+	value: string;
+	end?: number;
+	range?: readonly [number, number];
+	loc?: {
+		start?: { line?: number };
+		end?: { line?: number };
+	};
+}
+
+/** All comments in the file, typed for rule consumption. */
+export function getAllComments(sourceCode: SourceCode): CommentLike[] {
+	return sourceCode.getAllComments() as CommentLike[];
+}
+
+/**
+ * Strip parenthesized wrappers while preserving the caller's node type.
+ *
+ * SAFETY: parenthesized wrappers are transparent containers; the runtime value
+ * is unchanged, only the static view is restored.
+ */
+export function unwrapParentheses<T extends ESTree.Expression>(expression: T): T {
+	let current: ESTree.Expression = expression;
+	while (current.type === "ParenthesizedExpression") {
+		current = current.expression;
+	}
+	return current as T;
 }
 
 /**

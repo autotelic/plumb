@@ -10,6 +10,7 @@ import { isString, type NodeFieldValue } from "../../shared/structural.ts";
  */
 function propertyName(node: { readonly computed: boolean; readonly key: unknown }): string | null {
 	if (node.computed) return null;
+	// SAFETY: Property keys are read structurally; the engine guarantees the shape.
 	const key = node.key as { type?: string; name?: NodeFieldValue; value?: NodeFieldValue };
 	if (key?.type === "Identifier" && isString(key.name)) return key.name;
 	if (key?.type === "Literal" && isString(key.value)) return key.value;

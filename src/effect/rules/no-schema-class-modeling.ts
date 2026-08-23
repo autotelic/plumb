@@ -6,10 +6,9 @@ const BANNED = new Set(["Class", "TaggedClass"]);
 
 function isBannedSchemaStatic(
 	expression: ESTree.Expression | ESTree.TSTypeName | null | undefined,
-): boolean {
-	if (expression === null || expression === undefined) return false;
+): expression is Extract<ESTree.Expression, { type: "MemberExpression" }> {
 	return (
-		expression.type === "MemberExpression" &&
+		expression?.type === "MemberExpression" &&
 		expression.object.type === "Identifier" &&
 		expression.object.name === "Schema" &&
 		expression.property.type === "Identifier" &&
@@ -33,9 +32,9 @@ export const noSchemaClassModelingRule = defineRule({
 	createOnce(context) {
 		const checkExpression = (callee: ESTree.Expression | null | undefined): void => {
 			if (!isBannedSchemaStatic(callee)) return;
-			if (callee === null || callee === undefined) return;
-			const property = (callee as ESTree.MemberExpression)
-				.property as ESTree.IdentifierName | ESTree.PrivateIdentifier;
+			const member = callee as Extract<ESTree.Expression, { type: "MemberExpression" }>;
+			const property = member.property;
+			if (property.type !== "Identifier") return;
 			context.report({
 				node: callee,
 				messageId: "schemaClass",
@@ -48,11 +47,11 @@ export const noSchemaClassModelingRule = defineRule({
 			},
 			ClassDeclaration(node) {
 				if (!isBannedSchemaStatic(node.superClass)) return;
-				const property = (node.superClass as ESTree.MemberExpression)
-					.property as ESTree.IdentifierName | ESTree.PrivateIdentifier;
-				if (node.superClass === null) return;
+				const member = node.superClass as Extract<ESTree.Expression, { type: "MemberExpression" }>;
+				const property = member.property;
+				if (property.type !== "Identifier") return;
 				context.report({
-					node: node.superClass,
+					node: member,
 					messageId: "schemaClass",
 					data: { name: property.name },
 				});

@@ -1,6 +1,8 @@
 import { defineRule } from "@oxlint/plugins";
 
-import type { ESTree } from "@oxlint/plugins";
+import type { ESTree, SourceCode } from "@oxlint/plugins";
+
+import { getAllComments } from "../shared/structural.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
 
@@ -33,7 +35,7 @@ export const requireJsdocOnExportedRule = defineRule({
 			Program(node) {
 				jsdocFollowsLines.clear();
 				// SAFETY: getAllComments returns the engine comment shape this rule defines via CommentLike.
-				for (const comment of context.sourceCode.getAllComments() as CommentLike[]) {
+				for (const comment of getAllComments(context.sourceCode)) {
 					if (comment.type !== "Block" || !comment.value.startsWith("*")) continue;
 					const endLine = comment.loc?.end?.line;
 					if (endLine !== undefined) jsdocFollowsLines.add(endLine + 1);
