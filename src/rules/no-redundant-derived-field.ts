@@ -160,14 +160,9 @@ export const noRedundantDerivedFieldRule = defineRule({
 			}
 		}
 
-	/** Accept both `{ members }` and flattened `{ body }` shapes for an interface/type-literal body. */
-		function memberList(bodyNode: unknown): ESTree.TSSignature[] {
-			if (Array.isArray(bodyNode)) return bodyNode as ESTree.TSSignature[];
-			const record = bodyNode as { members?: unknown; body?: unknown } | null;
-			if (record === null || !isRecordObject(record)) return [];
-			if (Array.isArray(record.members)) return record.members as ESTree.TSSignature[];
-			if (Array.isArray(record.body)) return record.body as ESTree.TSSignature[];
-			return [];
+	/** Interface bodies nest their signature list under `body`. */
+		function memberList(bodyNode: ESTree.TSInterfaceBody): ESTree.TSSignature[] {
+			return [...bodyNode.body];
 		}
 
 		return {

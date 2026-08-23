@@ -1,15 +1,9 @@
 import type { ESTree } from "@oxlint/plugins";
-import { isRecordObject, isString } from "../shared/structural.ts";
+import { isNode } from "./is-node.ts";
+import type { NodeFieldValue } from "../shared/structural.ts";
+import { readField } from "../shared/structural.ts";
 
 type VisitorKeys = Readonly<Record<string, readonly string[]>>;
-
-function isNode(value: unknown): value is ESTree.Node {
-	return (
-		isRecordObject(value) &&
-		"type" in value &&
-		isString(value.type)
-	);
-}
 
 function collectInferTypeParameterNames(
 	node: ESTree.Node,
@@ -17,9 +11,8 @@ function collectInferTypeParameterNames(
 	names: Set<string>,
 ): void {
 	if (node.type === "TSInferType") names.add(node.typeParameter.name.name);
-	const record = node as unknown as Readonly<Record<string, unknown>>;
 	for (const key of visitorKeys[node.type] ?? []) {
-		const value = record[key];
+		const value = readField(node, key);
 		if (isNode(value)) {
 			collectInferTypeParameterNames(value, visitorKeys, names);
 			continue;

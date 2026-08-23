@@ -68,10 +68,13 @@ export const noTransposedFieldReadsRule = defineRule({
 	},
 	createOnce(context) {
 		const option = context.options?.[0];
+		// Rule options are decoded from the lint config file; this comparison is the
+		// I/O boundary, so a representation check is the correct tool here.
+		// oxlint-disable-next-line plumb/no-runtime-typeof -- config-file boundary
+		const optionIsObject =
+			option !== null && typeof option === "object" && !Array.isArray(option);
 		const rawGroups =
-			isRecordObject(option) && !Array.isArray(option)
-				? (option as Options).groups
-				: undefined;
+			optionIsObject ? (option as Options).groups : undefined;
 		const groups = (rawGroups ?? [["numerator", "denominator"]]).map((fields) => ({
 			order: new Map(fields.map((field, index) => [field, index])),
 			label: fields.join(" → "),

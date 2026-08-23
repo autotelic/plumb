@@ -1,38 +1,46 @@
 import type { ESTree } from "@oxlint/plugins";
 
 /**
- * Read a property from an ESTree node variant without chained assertions.
+ * The closed domain of values reachable from ESTree node fields.
+ *
+ * Nothing crossing rule logic is `unknown`: reflection over node fields
+ * yields exactly this union, so guards accept it instead of re-widening
+ * caller evidence to unknown.
+ */
+export type NodeFieldValue =
+	| ESTree.Node
+	| readonly ESTree.Node[]
+	| string
+	| number
+	| bigint
+	| boolean
+	| RegExp
+	| null
+	| undefined;
+
+/**
+ * Read a field from an ESTree node without chained assertions.
  *
  * SAFETY: callers invoke this after a discriminant (or containment) check that
  * establishes the key exists on the node's runtime shape; the value's domain is
- * owned by the AST grammar, not by untrusted input.
+ * owned by the AST grammar (see NodeFieldValue), not by untrusted input.
  */
-export function readField<T = unknown>(
-	node: unknown,
+export function readField<T = NodeFieldValue>(
+	node: object | null | undefined,
 	key: string,
 ): T | undefined {
-	// Null/undefined inputs (absent optional fields) yield undefined, mirroring
-	// optional-chaining semantics so callers can chain reads safely.
 	if (node === null || node === undefined) return undefined;
-	return (node as Record<string, unknown>)[key] as T | undefined;
+	return (node as Record<string, T>)[key];
 }
 
-/**
- * Sanctioned boundary guards for untyped AST payloads.
- *
- * SAFETY: these wrap the only `typeof` checks a rule should need — at the
- * point where loosely-typed AST JSON crosses into rule logic. Downstream
- * code branches on the narrowed domain type instead of representations.
- */
-export function isString(value: unknown): value is string {
+/** Discriminate string-valued fields of an AST node. */
+export function isString(value: NodeFieldValue): value is string {
 	return typeof value === "string";
 }
 
-/** Type guard: the value is a non-null object. */
-export function isRecordObject(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null;
+/** Discriminate object-valued fields of an AST node (child containers). */
+export function isRecordObject(
+	value: NodeFieldValue | Record<string, NodeFieldValue>,
+): value is Record<string, NodeFieldValue> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-
-/** Nearest-first ancestor chain accessor lives in ./ancestors.ts; kept separate for clarity.
- *  Re-exported here so rule code needs a single structural-import site. */
-export type { ESTree };

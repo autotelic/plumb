@@ -56,10 +56,13 @@ export const noBuiltinThrowsRule = defineRule({
 	},
 	createOnce(context) {
 		const option = context.options?.[0];
+		// Rule options are decoded from the lint config file; this comparison is the
+		// I/O boundary, so a representation check is the correct tool here.
+		// oxlint-disable-next-line plumb/no-runtime-typeof -- config-file boundary
+		const optionIsObject =
+			option !== null && typeof option === "object" && !Array.isArray(option);
 		const allowed: ReadonlySet<string> = new Set(
-			isRecordObject(option) && !Array.isArray(option)
-				? ((option as Options).allow ?? [])
-				: [],
+			optionIsObject ? ((option as Options).allow ?? []) : [],
 		);
 		return {
 		before() {

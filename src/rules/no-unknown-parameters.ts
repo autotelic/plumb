@@ -1,6 +1,5 @@
 import { defineRule } from "@oxlint/plugins";
 import type { ESTree } from "@oxlint/plugins";
-import { readField } from "../shared/structural.ts";
 
 type Parameter = ESTree.ParamPattern;
 type ParameterOwner =
@@ -55,11 +54,6 @@ export const noUnknownParametersRule = defineRule({
   },
   createOnce(context) {
     const checkParameters = (node: ParameterOwner) => {
-      // A type predicate is itself the decoder for its unknown input.
-      const returnsPredicate =
-        readField<string>(readField(readField(node, "returnType"), "typeAnnotation"), "type") ===
-        "TSTypePredicate";
-      if (returnsPredicate) return;
       for (const parameter of node.params) {
         const annotation = parameterAnnotation(parameter);
         if (annotation?.typeAnnotation.type !== "TSUnknownKeyword") continue;
