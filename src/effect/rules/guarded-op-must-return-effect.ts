@@ -1,0 +1,214 @@
+import { defineRule } from "@oxlint/plugins";
+
+import type { ESTree } from "@oxlint/plugins";
+
+const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
+
+function unwrapParentheses(expression: ESTree.Expression): ESTree.Expression {
+	let current = expression;
+	while (current.type === "ParenthesizedExpression") current = current.expression;
+	return current;
+}
+
+/** Whether the member chain ends in the Option namespace, e.g. `Option` or `O`. */
+function isOptionObject(node: ESTree.Expression | ESTree.Super): boolean {
+	if (node.type === "Identifier") return node.name === "Option";
+	if (node.type === "MemberExpression" && !node.computed && node.property.type === "Identifier") {
+		return node.property.name === "Option";
+	}
+	return false;
+}
+
+/** The name of the function whose body contains this node, if determinable. */
+function enclosingFunctionName(node: ESTree.Node): string | null {
+	let current: ESTree.Node | null | undefined = node.parent;
+	while (current !== undefined && current !== null) {
+		if (current.type === "FunctionDeclaration" && current.id !== null) return current.id.name;
+		if (
+			(current.type === "FunctionExpression" || current.type === "ArrowFunctionExpression") &&
+			node !== current
+		) {
+			const name =
+				current.type === "FunctionExpression" && current.id !== null
+					? current.id.name
+					: variableDeclaratorName(current);
+			if (name !== null) return name;
+		}
+		current = current.parent;
+	}
+	return null;
+}
+
+/** The declared name of the variable a function expression initialises, if any. */
+function variableDeclaratorName(node: ESTree.Node): string | null {
+	let current: ESTree.Node | null | undefined = node.parent;
+	while (current !== undefined && current !== null && current.type !== "Program") {
+		if (current.type === "VariableDeclarator" && current.id.type === "Identifier") return current.id.name;
+		current = current.parent;
+	}
+	return null;
+}
+
+function functionExpressionName(node: ESTree.Node): string | null {
+	const fn = node as ESTree.Function;
+	if (fn.id?.name) return fn.id.name;
+	return variableDeclaratorName(node);
+}
+
+/** The doctrine binds public APIs: walk up to see if this node is exported. */
+function hasExportAncestor(node: ESTree.Node): boolean {
+	let current: ESTree.Node | null | undefined = node.parent;
+	while (current !== undefined && current !== null) {
+		if (current.type === "ExportNamedDeclaration" || current.type === "ExportDefaultDeclaration") return true;
+		if (current.type === "Program") return false;
+		current = current.parent;
+	}
+	return false;
+}
+
+/** A return-type annotation naming Option<T>, e.g. `Option.Option<Account>`. */
+function optionTypeReference(type: ESTree.TSType): string | null {
+	if (type.type !== "TSTypeReference") return null;
+	const name = type.typeName;
+	if (name.type === "Identifier" && name.name === "Option") return "Option";
+	if (
+		name.type === "TSQualifiedName" &&
+		name.right.type === "Identifier" &&
+		name.right.name === "Option"
+	) {
+		return "Option.Option";
+	}
+	return null;
+}
+
+/**
+ * Guarded operations must surface failure reasons as tagged MoneyError values
+ * through the Effect error channel, not as bare Option.None which conflates
+ * every possible why into one silent absence.
+ */
+export const guardedOpMustReturnEffectRule = defineRule({
+	meta: {
+		type: "problem",
+		docs: {
+			description:
+				"Require guarded operations to fail with typed MoneyError reasons via Effect/Either instead of returning bare Option values.",
+		},
+		messages: {
+			optionReturn:
+				"`{{found}}` hides why the operation failed. Return `Effect.Effect<T, MoneyError>` (or `Either<T, MoneyError>` in sync cores) with Schema.TaggedError reasons so callers can match Overflow vs InvalidInput vs ZeroDivisor. Options buried in tuples, records or arrays hide it just as well.",
+			bareNone:
+				"`Option.none()` here discards the reason for failure. Fail with a tagged MoneyError reason instead, or keep the Option strictly internal while a converted public API owns the error channel.",
+		},
+	},
+	create(context) {
+		if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
+		return {
+			ReturnStatement(node) {
+				if (!hasExportAncestor(node)) return;
+				if (enclosingFunctionName(node)?.endsWith("Option")) return;
+				const argument = node.argument;
+				if (argument === null || argument === undefined || argument.type !== "CallExpression") return;
+				const call = unwrapParentheses(argument) as ESTree.CallExpression;
+				if (
+					call.callee.type === "MemberExpression" &&
+					call.callee.property.type === "Identifier" &&
+					call.callee.property.name === "none" &&
+					isOptionObject(call.callee.object)
+				) {
+					context.report({ node, messageId: "bareNone" });
+				}
+			},
+			ArrowFunctionExpression(node) {
+				if (!hasExportAncestor(node)) return;
+				const parentId = variableDeclaratorName(node);
+				if (parentId !== null && parentId.endsWith("Option")) return;
+				const annotation = node.returnType?.typeAnnotation;
+				if (annotation === undefined) return;
+				const found = optionInReturnType(annotation);
+				if (found !== null) {
+					context.report({ node: node.returnType ?? node, messageId: "optionReturn", data: { found } });
+				}
+			},
+			FunctionDeclaration(node) {
+				if (!hasExportAncestor(node)) return;
+				checkFunctionReturn(context, node, node.id?.name ?? null);
+			},
+			FunctionExpression(node) {
+				if (!hasExportAncestor(node)) return;
+				checkFunctionReturn(context, node, functionExpressionName(node));
+			},
+		};
+	},
+});
+
+function checkFunctionReturn(
+	context: { report(options: unknown): void },
+	node: ESTree.Function,
+	idName: string | null,
+): void {
+	if (idName !== null && idName.endsWith("Option")) return;
+	const annotation = node.returnType?.typeAnnotation;
+	if (annotation === undefined) return;
+	const found = optionInReturnType(annotation);
+	if (found !== null) {
+		context.report({ node: node.returnType ?? node, messageId: "optionReturn", data: { found } });
+	}
+}
+
+
+/** Search a type node for an embedded Option reference (tuples, arrays, members). */
+function findOptionType(type: ESTree.TSType): string | null {
+	const direct = optionTypeReference(type);
+	if (direct !== null) return direct;
+	switch (type.type) {
+		case "TSTupleType":
+			for (const element of type.elementTypes) {
+				// Named tuple members (e.g. `amount: T`) expose the payload as elementType.
+				const payload =
+					(element as { elementType?: ESTree.TSType }).elementType ?? (element as ESTree.TSType);
+				const found = findOptionType(payload);
+				if (found !== null) return found;
+			}
+			return null;
+		case "TSTypeOperator": {
+			// oxlint exposes the operand as `annotation`; other bridges as `typeAnnotation`.
+			const operand =
+				(type as { annotation?: ESTree.TSType }).annotation ??
+				(type as { typeAnnotation?: ESTree.TSType }).typeAnnotation;
+			return operand === undefined || operand === null ? null : findOptionType(operand);
+		}
+		case "TSArrayType":
+			return findOptionType(type.elementType);
+		case "TSTypeLiteral":
+			for (const member of type.members) {
+				if (member.type !== "TSPropertySignature") continue;
+				const annotation = (member.typeAnnotation as { typeAnnotation?: ESTree.TSType } | undefined)
+					?.typeAnnotation;
+				if (annotation === undefined) continue;
+				const found = findOptionType(annotation);
+				if (found !== null) return found;
+			}
+			return null;
+		default:
+			return null;
+	}
+}
+
+/** A return-type annotation hiding an Option anywhere: unions, tuples, arrays, members. */
+function optionInReturnType(annotation: ESTree.TSType): string | null {
+	return findOptionType(unwrapReturnType(annotation));
+}
+
+
+function unwrapReturnType(annotation: ESTree.TSType): ESTree.TSType {
+	// Parenthesised or union-annotated returns still expose their first Option member.
+	let current = annotation;
+	while (current.type === "TSParenthesizedType") current = current.typeAnnotation;
+	if (current.type === "TSUnionType") {
+		for (const member of current.types) {
+			const found = optionTypeReference(member);
+			if (found !== null) return member;
+		}
+	}
+	return current;
+}

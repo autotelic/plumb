@@ -1,0 +1,47 @@
+import { defineRule } from "@oxlint/plugins";
+
+import type { ESTree } from "@oxlint/plugins";
+
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
+const IMPOSSIBLE_MESSAGE =
+	/(?:never\s+happen|impossible|unreachable|invariant|cannot\s+happen|can'?t\s+happen|unexpected\s+state|not\s+possible)/iu;
+
+function throwMessage(node: ESTree.ThrowStatement): string | null {
+	const argument = node.argument;
+	if (argument === null || argument === undefined) return null;
+	if (argument.type === "Literal" && typeof argument.value === "string") return argument.value;
+	if (argument.type === "NewExpression") {
+		const first = argument.arguments[0];
+		if (first !== undefined && first.type === "Literal" && typeof first.value === "string") {
+			return first.value;
+		}
+	}
+	return null;
+}
+
+/** Reject "should never happen" throws; encode the case out of the type instead. */
+export const noImpossibleBranchThrowRule = defineRule({
+	meta: {
+		type: "problem",
+		docs: {
+			description:
+				"Disallow hand-asserted impossible branches (throws about never-happens/invariants); encode the case out of the type so the compiler rejects it.",
+		},
+		messages: {
+			impossibleThrow:
+				"This branch is asserted impossible by hand (\"{{message}}\"). If it truly cannot occur, parse/encode it out of the type (Option, parsed/refined type) so the compiler rejects it; otherwise return a structured failure.",
+		},
+	},
+	create(context) {
+		if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
+
+		return {
+			ThrowStatement(node) {
+				const message = throwMessage(node);
+				if (message === null) return;
+				if (!IMPOSSIBLE_MESSAGE.test(message)) return;
+				context.report({ node, messageId: "impossibleThrow", data: { message } });
+			},
+		};
+	},
+});

@@ -1,0 +1,60 @@
+import { defineRule } from "@oxlint/plugins";
+
+import type { ESTree } from "@oxlint/plugins";
+
+const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
+
+/** Stems that name nothing; a test file must point back at the module it covers. */
+const VAGUE_STEMS: ReadonlySet<string> = new Set([
+	"index",
+	"test",
+	"tests",
+	"spec",
+	"util",
+	"utils",
+	"helper",
+	"helpers",
+	"misc",
+	"common",
+	"shared",
+	"core",
+	"base",
+	"main",
+	"lib",
+]);
+
+function testFileStem(filename: string): string {
+	const segments = filename.replaceAll("\\", "/").split("/");
+	const base = segments[segments.length - 1] ?? "";
+	return base.replace(/\.[cm]?[jt]sx?$/u, "").replace(/\.(?:test|spec)$/u, "");
+}
+
+/** Name test files after the source they cover so agents can navigate both directions. */
+export const noVagueTestFilenamesRule = defineRule({
+	meta: {
+		type: "problem",
+		docs: {
+			description:
+				"Disallow vague test file names (index.test.ts, utils.test.ts, ...) because tests are found by searching for the source module's name; a test file that does not name the code it covers costs extra agent turns to locate.",
+		},
+		messages: {
+			vagueTestFilename:
+				"Test file `{{stem}}.test.ts` does not name the source it covers. Rename it after the module under test (e.g. `stripe.ts` -> `stripe.test.ts`) so searches for the source name land on its tests too.",
+		},
+	},
+	create(context) {
+		return {
+			Program(node) {
+				const path = context.filename.replaceAll("\\", "/");
+				if (!TEST_FILE.test(path)) return;
+				const stem = testFileStem(path);
+				if (!VAGUE_STEMS.has(stem.toLowerCase())) return;
+				context.report({
+					node,
+					messageId: "vagueTestFilename",
+					data: { stem },
+				});
+			},
+		};
+	},
+});

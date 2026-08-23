@@ -1,0 +1,89 @@
+import { defineRule } from "@oxlint/plugins";
+
+import type { ESTree } from "@oxlint/plugins";
+
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
+
+type FunctionWithReturnType = ESTree.ArrowFunctionExpression | ESTree.Function;
+
+function isNullableKeyword(type: ESTree.TSType): boolean {
+	return type.type === "TSNullKeyword" || type.type === "TSUndefinedKeyword";
+}
+
+/**
+ * Returns whether a union pairs a nullable member with at least one real
+ * value type (T | null/undefined, not void | undefined).
+ */
+function nullableWithValue(union: ESTree.TSUnionType): boolean {
+	let nullable = false;
+	let value = false;
+	for (const member of union.types) {
+		if (isNullableKeyword(member)) {
+			nullable = true;
+		} else if (member.type !== "TSVoidKeyword" && member.type !== "TSNeverKeyword") {
+			value = true;
+		}
+	}
+	return nullable && value;
+}
+
+function asUnion(type: ESTree.TSType): ESTree.TSUnionType | null {
+	if (type.type === "TSParenthesizedType") return asUnion(type.typeAnnotation);
+	return type.type === "TSUnionType" ? type : null;
+}
+
+function isGetOrThrowMember(node: ESTree.MemberExpression): boolean {
+	return !node.computed && node.property.type === "Identifier" && node.property.name === "getOrThrow";
+}
+
+/** Guarded operations must surface absence as Option, not null/undefined unions or crashes. */
+export const guardedOpMustReturnOptionRule = defineRule({
+	meta: {
+		type: "problem",
+		docs: {
+			description:
+				"Disallow returning T | null/undefined from guarded operations and getOrThrow escapes; express absence as Option<T> so callers compose with Option.zip/flatMap/filter.",
+		},
+		messages: {
+			nullableReturn:
+				"This function returns `{{type}}`, conflating absence with a value. Return Option<{{value}}> and express absence as Option.none().",
+			optionEscape:
+				"`getOrThrow` turns absence into a runtime crash. Keep the Option in the type and handle None, or parse to a refined value so the empty branch can't exist.",
+		},
+	},
+	create(context) {
+		if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
+
+		const checkReturnType = (node: FunctionWithReturnType) => {
+			const annotation = node.returnType;
+			if (annotation === null || annotation === undefined) return;
+			const type = annotation.typeAnnotation;
+			const union = asUnion(type);
+			if (union === null || !nullableWithValue(union)) return;
+			const value = union.types
+				.filter((member) => !isNullableKeyword(member) && member.type !== "TSVoidKeyword")
+				.map((member) => context.sourceCode.getText(member))
+				.join(" | ");
+			context.report({
+				node: type,
+				messageId: "nullableReturn",
+				data: { type: context.sourceCode.getText(type), value },
+			});
+		};
+
+		return {
+			ArrowFunctionExpression: checkReturnType,
+			FunctionDeclaration: checkReturnType,
+			FunctionExpression: checkReturnType,
+			MemberExpression(node) {
+				if (isGetOrThrowMember(node)) context.report({ node, messageId: "optionEscape" });
+			},
+			Identifier(node) {
+				if (node.name !== "getOrThrow") return;
+				const parent = node.parent;
+				if (parent !== null && parent.type === "MemberExpression" && parent.property === node) return;
+				context.report({ node, messageId: "optionEscape" });
+			},
+		};
+	},
+});

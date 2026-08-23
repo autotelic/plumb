@@ -1,0 +1,151 @@
+import { defineRule } from "@oxlint/plugins";
+
+import type { ESTree } from "@oxlint/plugins";
+
+const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
+
+const ORDERING_OPERATORS = new Set(["<", ">", "<=", ">=", "===", "=="]);
+
+function unwrapParentheses(expression: ESTree.Expression): ESTree.Expression {
+	let current = expression;
+	while ((current as unknown as { type?: string }).type === "ParenthesizedExpression") {
+		current = (current as unknown as { expression: ESTree.Expression }).expression;
+	}
+	return current;
+}
+
+function isZeroLiteral(
+	expression: ESTree.Expression | ESTree.PrivateIdentifier | null | undefined,
+): boolean {
+	return (
+		expression !== null &&
+		expression !== undefined &&
+		expression.type === "Literal" &&
+		expression.value === 0
+	);
+}
+
+/** Source text of the operand compared against zero, or null when this is not one. */
+function orderingZeroSubject(
+	test: ESTree.Expression,
+	sourceText: string,
+): string | null {
+	const binary = unwrapParentheses(test);
+	if (binary.type !== "BinaryExpression" || !ORDERING_OPERATORS.has(binary.operator)) {
+		return null;
+	}
+	const slice = (expression: ESTree.Expression | ESTree.PrivateIdentifier): string =>
+		sourceText.slice(expression.range?.[0] ?? 0, expression.range?.[1] ?? 0).trim();
+	if (isZeroLiteral(binary.right)) return slice(binary.left);
+	if (isZeroLiteral(binary.left)) return slice(binary.right);
+	return null;
+}
+
+function isSentinelValue(expression: ESTree.Node | null | undefined): boolean {
+	if (expression === null || expression === undefined) return false;
+	if ((expression as unknown as { type?: string }).type === "ParenthesizedExpression") {
+		return isSentinelValue((expression as unknown as { expression: ESTree.Expression }).expression);
+	}
+	if (expression.type === "UnaryExpression") {
+		return (
+			expression.operator === "-" &&
+			expression.argument.type === "Literal" &&
+			expression.argument.value === 1
+		);
+	}
+	return expression.type === "Literal" && (expression.value === 0 || expression.value === 1);
+}
+
+function lastReturnedValue(block: ESTree.BlockStatement): ESTree.Node | null | undefined {
+	const statement = block.body[block.body.length - 1];
+	return statement !== undefined && statement.type === "ReturnStatement"
+		? statement.argument
+		: undefined;
+}
+
+/** Hand-mapping an ordering comparison to domain values duplicates Ordering.match. */
+export const preferOrderingMatchRule = defineRule({
+	meta: {
+		type: "problem",
+		docs: {
+			description:
+				"Require ladders of conditional branches re-testing the same ordering comparison against zero to be expressed as one Ordering.match table.",
+		},
+		messages: {
+			preferOrderingMatch:
+				"This ladder re-tests `{{subject}}` against zero {{links}} times to pick domain values. Replace it with a single Ordering.match({ onLessThan, onEqual, onGreaterThan }) over the comparison result so the direction mapping lives in one exhaustive table.",
+		},
+	},
+	create(context) {
+		if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
+		const checkChain = (
+			tests: Array<{ subject: string | null; node: ESTree.Expression }>,
+			leaves: Array<ESTree.Node | null | undefined>,
+		): void => {
+			if (tests.length < 2) return;
+			if (tests.some((test) => test.subject === null)) return;
+			const subject = tests[0]!.subject!;
+			if (tests.some((test) => test.subject !== subject)) return;
+			// purely-sentinel ladders already belong to no-sentinel-comparison-union
+			if (leaves.every((leaf) => isSentinelValue(leaf))) return;
+			context.report({
+				node: tests[0]!.node,
+				messageId: "preferOrderingMatch",
+				data: { subject, links: String(tests.length) },
+			});
+		};
+		return {
+			ConditionalExpression(node) {
+				const tests: Array<{ subject: string | null; node: ESTree.Expression }> = [];
+				const leaves: Array<ESTree.Node | null | undefined> = [];
+				let current: ESTree.ConditionalExpression | null = node;
+				while (current !== null && current.type === "ConditionalExpression") {
+					tests.push({
+						subject: orderingZeroSubject(current.test, context.sourceCode.text),
+						node: current.test,
+					});
+					leaves.push(current.consequent);
+					const alternate: ESTree.Expression | null = current.alternate;
+					if (alternate.type === "ConditionalExpression") {
+						current = alternate;
+					} else {
+						leaves.push(alternate);
+						current = null;
+					}
+				}
+				checkChain(tests, leaves);
+			},
+			IfStatement(node) {
+				const tests: Array<{ subject: string | null; node: ESTree.Expression }> = [];
+				const leaves: Array<ESTree.Node | null | undefined> = [];
+				let current: ESTree.IfStatement | null = node;
+				while (current !== null && current.type === "IfStatement") {
+					tests.push({
+						subject: orderingZeroSubject(current.test, context.sourceCode.text),
+						node: current.test,
+					});
+					const consequent = current.consequent;
+					leaves.push(
+						consequent.type === "BlockStatement"
+							? lastReturnedValue(consequent)
+							: consequent,
+					);
+					const alternate: ESTree.Statement | null = current.alternate;
+					if (alternate === null) {
+						current = null;
+					} else if (alternate.type === "IfStatement") {
+						current = alternate;
+					} else {
+						leaves.push(
+							alternate.type === "BlockStatement"
+								? lastReturnedValue(alternate)
+								: alternate,
+						);
+						current = null;
+					}
+				}
+				checkChain(tests, leaves);
+			},
+		};
+	},
+});
