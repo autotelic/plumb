@@ -22,7 +22,12 @@ interface Options {
 	readonly allow?: ReadonlyArray<string>;
 }
 
-/** Documented contract for unwrapParentheses. */
+/**
+ * Unwrap parenthesized expressions to the underlying expression.
+ *
+ * @param {ESTree.Expression} expression - The expression to unwrap.
+ * @returns {ESTree.Expression} The first non-parenthesized inner expression.
+ */
 function unwrapParentheses(expression: ESTree.Expression): ESTree.Expression {
 	let current = expression;
 	while (current.type === "ParenthesizedExpression") current = current.expression;
