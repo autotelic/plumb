@@ -99,8 +99,11 @@ export default defineConfig({
       },
     },
     {
+      // plumb:allow-off — RuleTester adapter typing requires reinterpretation
+      // at the plugin boundary; assertions are confined to these files.
       files: ["src/**/*.test.ts"],
       rules: {
+        "plumb/no-reinterpret-cast": "off",
         "plumb-meta/require-rule-tester": "error",
       },
     },
