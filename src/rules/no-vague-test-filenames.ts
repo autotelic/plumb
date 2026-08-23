@@ -23,6 +23,7 @@ const VAGUE_STEMS: ReadonlySet<string> = new Set([
 	"lib",
 ]);
 
+/** Documented contract for testFileStem. */
 function testFileStem(filename: string): string {
 	const segments = filename.replaceAll("\\", "/").split("/");
 	const base = segments[segments.length - 1] ?? "";

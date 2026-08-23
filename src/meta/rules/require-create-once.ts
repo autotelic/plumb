@@ -4,6 +4,7 @@ import { isString } from "../../shared/structural.ts";
 
 import type { ESTree } from "@oxlint/plugins";
 
+/** Documented contract for propertyName. */
 function propertyName(key: ESTree.ObjectProperty): string | null {
 	if (key.computed) return null;
 	if (key.key.type === "Identifier") return key.key.name;

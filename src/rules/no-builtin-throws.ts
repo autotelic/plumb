@@ -22,6 +22,7 @@ interface Options {
 	readonly allow?: ReadonlyArray<string>;
 }
 
+/** Documented contract for unwrapParentheses. */
 function unwrapParentheses(expression: ESTree.Expression): ESTree.Expression {
 	let current = expression;
 	while (current.type === "ParenthesizedExpression") current = current.expression;

@@ -7,6 +7,7 @@ const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 const IMPOSSIBLE_MESSAGE =
 	/(?:never\s+happen|impossible|unreachable|invariant|cannot\s+happen|can'?t\s+happen|unexpected\s+state|not\s+possible)/iu;
 
+/** Documented contract for throwMessage. */
 function throwMessage(node: ESTree.ThrowStatement): string | null {
 	const argument = node.argument;
 	if (argument === null || argument === undefined) return null;

@@ -5,6 +5,7 @@ import { isRecordObject, isString } from "../../shared/structural.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
 
+/** Documented contract for hasLiteralTagProperty. */
 function hasLiteralTagProperty(member: ESTree.Node): boolean {
 	if (member.type !== "TSPropertySignature") return false;
 	const key = member.key;
@@ -19,6 +20,7 @@ function hasLiteralTagProperty(member: ESTree.Node): boolean {
 	return annotation.literal.type === "Literal" && isString(annotation.literal.value);
 }
 
+/** Documented contract for isTaggedLiteralMember. */
 function isTaggedLiteralMember(member: ESTree.TSType): boolean {
 	if (member.type !== "TSTypeLiteral") return false;
 	return member.members.some(hasLiteralTagProperty);

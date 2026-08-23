@@ -13,6 +13,7 @@ function typeOf(node: object): string {
 	return cast<{ readonly type: string }>(node).type;
 }
 
+/** Documented contract for memberName. */
 function memberName(member: object): string | null {
 	const shape = cast<{
 		readonly computed?: boolean;
@@ -27,6 +28,7 @@ function memberName(member: object): string | null {
 		: null;
 }
 
+/** Documented contract for isLayerProvision. */
 function isLayerProvision(argument: object, layerNames: ReadonlySet<string>): boolean {
 	if (typeOf(argument) !== "CallExpression") return false;
 	const callee = cast<{ readonly callee: object }>(argument).callee;

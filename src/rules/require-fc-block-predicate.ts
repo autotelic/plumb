@@ -2,6 +2,7 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
 
+/** Documented contract for isPropertyCall. */
 function isPropertyCall(callee: ESTree.CallExpression["callee"]): boolean {
 	return (
 		callee.type === "MemberExpression" &&

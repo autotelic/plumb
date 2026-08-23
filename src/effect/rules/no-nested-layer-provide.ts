@@ -11,6 +11,7 @@ function typeOf(node: object): string {
 	return cast<{ readonly type: string }>(node).type;
 }
 
+/** Documented contract for isLayerProvide. */
 function isLayerProvide(node: object): boolean {
 	if (typeOf(node) !== "CallExpression") return false;
 	const callee = cast<{ readonly callee: object }>(node).callee;

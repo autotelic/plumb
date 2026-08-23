@@ -15,6 +15,7 @@ function typeOf(node: object): string {
 	return cast<{ readonly type: string }>(node).type;
 }
 
+/** Documented contract for storageName. */
 function storageName(node: object): string | null {
 	if (typeOf(node) !== "Identifier") return null;
 	const name = cast<{ readonly name: string }>(node).name;

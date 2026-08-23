@@ -10,6 +10,7 @@ interface CommentLike {
 	loc?: { start: { line: number } };
 }
 
+/** Documented contract for collectJSDoc. */
 function collectJSDoc(sourceCode: {
 	getAllComments: () => CommentLike[];
 	text: string;
