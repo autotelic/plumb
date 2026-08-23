@@ -4,15 +4,6 @@ import type { ESTree } from "@oxlint/plugins";
 
 const DISCRIMINANTS = new Set(["_tag", "tag"]);
 
-function isTagDiscriminant(expression: ESTree.Expression): boolean {
-	return (
-		expression.type === "MemberExpression" &&
-		!expression.computed &&
-		expression.property.type === "Identifier" &&
-		DISCRIMINANTS.has(expression.property.name)
-	);
-}
-
 /**
  * Bounded touch points: adding a variant should be caught by the compiler at
  * every place that must change. A `default` arm on a tag switch — even a
@@ -34,7 +25,14 @@ export const requireExhaustiveTagSwitchRule = defineRule({
 	createOnce(context) {
 		return {
 			SwitchStatement(node) {
-				if (!isTagDiscriminant(node.discriminant)) return;
+				const discriminant = node.discriminant;
+			if (
+				discriminant.type !== "MemberExpression" ||
+				discriminant.computed ||
+				discriminant.property.type !== "Identifier" ||
+				!DISCRIMINANTS.has(discriminant.property.name)
+			)
+				return;
 				if (node.cases.some((clause) => clause.test === null)) {
 					context.report({ node, messageId: "noDefault" });
 				}
