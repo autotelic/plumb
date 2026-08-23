@@ -39,10 +39,13 @@ function isTestFrameworkObject(
     return expression.name === "vi" || expression.name === "jest";
   }
   return variable.defs.some((definition) => {
-    if (definition.type !== "ImportBinding" || definition.parent?.type !== "ImportDeclaration") {
+    if (definition.type !== "ImportBinding") return false;
+    // Scope defs expose their declaration only via .parent; recover it through getAncestors.
+    const importDeclaration = (sourceCode.getAncestors(definition.node) as unknown as ReadonlyArray<ESTree.Node>).at(-1);
+    if (importDeclaration?.type !== "ImportDeclaration") {
       return false;
     }
-    const source = definition.parent.source.value;
+    const source = importDeclaration.source.value;
     const name = importedName(definition.node);
     return (source === "vitest" && name === "vi") || (source === "@jest/globals" && name === "jest");
   });

@@ -24,16 +24,21 @@ function isConstAssertion(node: TypeAssertionExpression): boolean {
   );
 }
 
-function isOutermostAssertionInChain(node: TypeAssertionExpression): boolean {
+function isOutermostAssertionInChain(node: TypeAssertionExpression, ancestors: ReadonlyArray<ESTree.Node>): boolean {
   let current: ESTree.Expression = node;
-  let parent = node.parent;
 
-  while (parent.type === "ParenthesizedExpression" && parent.expression === current) {
-    current = parent;
-    parent = parent.parent;
+  // Nearest-first scan through parenthesized wrappers.
+  let index = ancestors.length - 1;
+  while (index >= 0) {
+    const parent = ancestors[index]!;
+    if (parent.type !== "ParenthesizedExpression" || parent.expression !== current) break;
+    current = parent as unknown as ESTree.Expression;
+    index -= 1;
   }
 
-  return !isTypeAssertionExpression(parent) || parent.expression !== current;
+  const outermost = ancestors[index];
+  if (outermost === undefined) return true;
+  return !isTypeAssertionExpression(outermost) || outermost.expression !== current;
 }
 
 function isForbiddenAssertionChain(node: TypeAssertionExpression): boolean {
@@ -65,7 +70,11 @@ export const noChainedTypeAssertionsRule = defineRule({
   },
   createOnce(context) {
     const checkTypeAssertion = (node: TypeAssertionExpression) => {
-      if (!isOutermostAssertionInChain(node) || !isForbiddenAssertionChain(node)) return;
+      if (
+        !isOutermostAssertionInChain(node, context.sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>) ||
+        !isForbiddenAssertionChain(node)
+ )
+        return;
       context.report({ node, messageId: "chained" });
     };
 

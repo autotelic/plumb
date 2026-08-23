@@ -1,6 +1,6 @@
 import { defineRule } from "@oxlint/plugins";
 
-import type { ESTree } from "@oxlint/plugins";
+import type { ESTree, SourceCode } from "@oxlint/plugins";
 
 type RuntimeFunction = ESTree.ArrowFunctionExpression | ESTree.Function;
 
@@ -12,13 +12,14 @@ function isRuntimeFunction(node: ESTree.Node): node is RuntimeFunction {
 	);
 }
 
-function isInsideTypeGuard(node: ESTree.Node): boolean {
-	let current: ESTree.Node | null = node.parent;
-	while (current !== null && current.type !== "Program") {
+function isInsideTypeGuard(node: ESTree.Node, sourceCode: SourceCode): boolean {
+	const ancestors = sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>;
+	for (let index = ancestors.length - 1; index >= 0; index--) {
+		const current = ancestors[index]!;
+		if (current.type === "Program") break;
 		if (isRuntimeFunction(current)) {
 			return current.returnType?.typeAnnotation.type === "TSTypePredicate";
 		}
-		current = current.parent;
 	}
 	return false;
 }
@@ -57,7 +58,7 @@ export const noRuntimeTypeofRule = defineRule({
 					option.allowInTypeGuards === true;
 				if (
 					node.operator === "typeof" &&
-					(!allowInTypeGuards || !isInsideTypeGuard(node))
+					(!allowInTypeGuards || !isInsideTypeGuard(node, context.sourceCode))
 				) {
 					context.report({ node, messageId: "runtimeTypeof" });
 				}
