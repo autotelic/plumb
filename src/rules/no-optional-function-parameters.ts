@@ -11,24 +11,12 @@ interface FunctionLike {
 	readonly params: ReadonlyArray<ESTree.ParamPattern>;
 }
 
-/** Discriminant reader for engine nodes the typings leave loose. */
-function typeOf(node: object): string {
-	return cast<{ readonly type: string }>(node).type;
-}
-
-/** Unwrap TypeScript parameter-property wrappers to the annotated pattern. */
-function annotatedPattern(parameter: ESTree.ParamPattern): ESTree.ParamPattern {
-	return typeOf(parameter) === "TSParameterProperty"
-		? cast<{ readonly parameter: ESTree.ParamPattern }>(parameter).parameter
-		: parameter;
-}
-
-function isOptional(parameter: ESTree.ParamPattern): boolean {
-	// Grammar-level optionality flag, present on every concrete ParamPattern shape.
-	return cast<{ readonly optional?: boolean }>(annotatedPattern(parameter)).optional === true;
-}
-
-/** Optional parameters hide undefined from the signature; require the union spelled out. */
+/**
+ * Optional parameters hide undefined from the signature; require the union spelled out.
+ *
+ * Optionality is a grammar-level flag present on every concrete ParamPattern
+ * shape, read after unwrapping TypeScript parameter-property wrappers.
+ */
 export const noOptionalFunctionParametersRule = defineRule({
 	meta: {
 		type: "problem",
@@ -44,7 +32,11 @@ export const noOptionalFunctionParametersRule = defineRule({
 	createOnce(context) {
 		const check = (node: ESTree.Node): void => {
 			for (const parameter of cast<FunctionLike>(node).params) {
-				if (!isOptional(parameter)) continue;
+				const unwrapped =
+					cast<{ readonly type: string }>(parameter).type === "TSParameterProperty"
+						? cast<{ readonly parameter: ESTree.ParamPattern }>(parameter).parameter
+						: parameter;
+				if (cast<{ readonly optional?: boolean }>(unwrapped).optional !== true) continue;
 				context.report({ node: parameter, messageId: "optionalParameter" });
 			}
 		};
