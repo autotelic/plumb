@@ -34,12 +34,16 @@ function collectInferTypeParameterNames(
 /** Collect type binders that are in scope at a node and can shadow module aliases. */
 export function lexicalTypeParameterNames(
 	node: ESTree.Node,
+	ancestors: ReadonlyArray<ESTree.Node>,
 	visitorKeys: VisitorKeys,
 ): ReadonlySet<string> {
 	const names = new Set<string>();
-	let descendant: ESTree.Node = node;
-	let current: ESTree.Node | null = node;
-	while (current !== null && current.type !== "Program") {
+	// Nearest-first chain including the node itself; `descendant` trails by one.
+	const chain: Array<ESTree.Node> = [node, ...[...ancestors].reverse()];
+	for (let index = 1; index < chain.length; index += 1) {
+		const current = chain[index]!;
+		if (current.type === "Program") break;
+		const descendant = chain[index - 1]!;
 		if ("typeParameters" in current) {
 			for (const parameter of current.typeParameters?.params ?? []) {
 				names.add(parameter.name.name);
@@ -54,8 +58,6 @@ export function lexicalTypeParameterNames(
 		if (current.type === "TSConditionalType" && descendant === current.trueType) {
 			collectInferTypeParameterNames(current.extendsType, visitorKeys, names);
 		}
-		descendant = current;
-		current = current.parent;
 	}
 	return names;
 }

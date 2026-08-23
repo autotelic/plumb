@@ -83,6 +83,7 @@ export const noObjectParametersRule = defineRule({
 		const checkParameters = (node: ParameterOwner) => {
 			const shadowedAliases = lexicalTypeParameterNames(
 				node,
+				context.sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>,
 				context.sourceCode.visitorKeys,
 			);
 			for (const parameter of node.params) {

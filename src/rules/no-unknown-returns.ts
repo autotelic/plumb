@@ -81,7 +81,11 @@ export const noUnknownReturnsRule = defineRule({
       if (
         !resolvesToUnknown(
           annotation.typeAnnotation,
-          lexicalTypeParameterNames(node, context.sourceCode.visitorKeys),
+          lexicalTypeParameterNames(
+            node,
+            context.sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>,
+            context.sourceCode.visitorKeys,
+          ),
         )
       ) {
         return;

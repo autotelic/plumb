@@ -57,9 +57,9 @@ function hasOrderingComparison(expression: ESTree.Expression): boolean {
 }
 
 /** True when the conditional is nested under a larger sentinel chain already reported at its root. */
-function coveredByOuterSentinelChain(node: ESTree.ConditionalExpression): boolean {
-	let current: ESTree.Node | null = node.parent;
-	while (current !== null) {
+function coveredByOuterSentinelChain(node: ESTree.ConditionalExpression, ancestors: ReadonlyArray<ESTree.Node>): boolean {
+	for (let index = ancestors.length - 1; index >= 0; index--) {
+		const current = ancestors[index]!;
 		if (current.type === "ConditionalExpression") {
 			if (chainIsSentinel(current)) return true;
 		} else if (
@@ -70,7 +70,6 @@ function coveredByOuterSentinelChain(node: ESTree.ConditionalExpression): boolea
 		) {
 			return false;
 		}
-		current = current.parent;
 	}
 	return false;
 }
@@ -117,9 +116,9 @@ function chainConditions(node: ESTree.IfStatement): ESTree.Expression[] {
 	return conditions;
 }
 
-function isElseIfBranch(node: ESTree.IfStatement): boolean {
-	const parent = node.parent;
-	return parent !== null && parent.type === "IfStatement" && parent.alternate === node;
+function isElseIfBranch(node: ESTree.IfStatement, ancestors: ReadonlyArray<ESTree.Node>): boolean {
+	const parent = ancestors.at(-1);
+	return parent?.type === "IfStatement" && parent.alternate === node;
 }
 
 /** Ban hand-built -1/0/1 comparison results; ordering must go through a named order. */
@@ -139,12 +138,12 @@ export const noSentinelComparisonUnionRule = defineRule({
 		return {
 			ConditionalExpression(node) {
 				if (!chainIsSentinel(node)) return;
-				if (coveredByOuterSentinelChain(node)) return;
+				if (coveredByOuterSentinelChain(node, context.sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>)) return;
 				if (!hasOrderingComparison(node)) return;
 				context.report({ node, messageId: "sentinelComparisonUnion" });
 			},
 			IfStatement(node) {
-				if (isElseIfBranch(node)) return;
+				if (isElseIfBranch(node, context.sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>)) return;
 				if (!ifChainIsSentinel(node)) return;
 				if (!chainConditions(node).some(hasOrderingComparison)) return;
 				context.report({ node, messageId: "sentinelComparisonUnion" });
