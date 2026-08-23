@@ -74,8 +74,7 @@ export const noManualFieldGuardsRule = defineRule({
 				"Hand-rolled Option-tag guard beside a SchemaParser decode. Validate the field with a Schema refinement (or decode into the domain value via `SchemaGetter.transformOrFail`) so the ladder branch disappears.",
 		},
 	},
-	create(context) {
-		if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
+	createOnce(context) {
 		let hasDecode = false;
 		const pending: Array<{ node: ESTree.Node; messageId: "regexTest" | "optionGuard" }> = [];
 		const optionVars = new Set<string>();
@@ -84,6 +83,12 @@ export const noManualFieldGuardsRule = defineRule({
 			pending.push({ node, messageId });
 		};
 		return {
+		before() {
+			if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
+			hasDecode = false;
+			pending.length = 0;
+			optionVars.clear();
+		},
 			CallExpression(node) {
 				const name = calleeName(node);
 				if (name !== null && name.startsWith("decodeUnknown")) hasDecode = true;

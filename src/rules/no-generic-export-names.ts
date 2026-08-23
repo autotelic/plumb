@@ -116,13 +116,17 @@ export const noGenericExportNamesRule = defineRule({
 				"Exported symbol `{{qualified}}` stays generic, so searching it lands on hundreds of unrelated hits. Add a domain word to the name (e.g. `create` -> `createStripeClient`) or move it into a domain-named module so callers read `{{domain}}.{{name}}`.",
 		},
 	},
-	create(context) {
-		if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
-		const moduleWords = qualifierWords(context.filename);
-		const moduleSuppliesDomain = moduleWords.some(
-			(word) => !GENERIC_TERMS.has(word.toLowerCase()),
-		);
+	createOnce(context) {
+		// `before()` runs per file, so these hold the current file's values.
+		let moduleWords: Array<string> = [];
+		let moduleSuppliesDomain = false;
 		return {
+			before() {
+				const filePath = context.filename.replaceAll("\\", "/");
+				if (TEST_FILE.test(filePath)) return false;
+				moduleWords = qualifierWords(filePath);
+				moduleSuppliesDomain = moduleWords.some((word) => !GENERIC_TERMS.has(word.toLowerCase()));
+			},
 			Program(node) {
 				for (const statement of node.body) {
 					const declaration = declaredStatement(statement);

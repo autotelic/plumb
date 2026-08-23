@@ -53,8 +53,7 @@ export const noBuiltinThrowsRule = defineRule({
 		],
 		defaultOptions: [{ allow: [] }],
 	},
-	create(context) {
-		if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
+	createOnce(context) {
 		const option = context.options?.[0];
 		const allowed: ReadonlySet<string> = new Set(
 			typeof option === "object" && option !== null && !Array.isArray(option)
@@ -62,6 +61,9 @@ export const noBuiltinThrowsRule = defineRule({
 				: [],
 		);
 		return {
+		before() {
+			if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
+		},
 			ThrowStatement(node) {
 				const argument = node.argument === null || node.argument === undefined ? undefined : unwrapParentheses(node.argument);
 				if (argument?.type !== "NewExpression") return;

@@ -34,8 +34,7 @@ export const preferEffectPredicateOverBooleanFunctionRule = defineRule({
 				"Export this predicate as P.Predicate<{{type}}> so it composes with P.and/or/mapInput, Array.filter, and Option refinement.",
 		},
 	},
-	create(context) {
-		if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
+	createOnce(context) {
 
 		const checkPredicate = (node: PredicateFunction) => {
 			if (node.returnType === null || node.returnType === undefined) return;
@@ -56,6 +55,9 @@ export const preferEffectPredicateOverBooleanFunctionRule = defineRule({
 		};
 
 		return {
+		before() {
+			if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
+		},
 			ExportNamedDeclaration(node) {
 				const declaration = node.declaration;
 				if (declaration === null) return;

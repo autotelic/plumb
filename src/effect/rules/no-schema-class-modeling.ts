@@ -30,7 +30,7 @@ export const noSchemaClassModelingRule = defineRule({
 				"Do not introduce `Schema.{{name}}` as a data-modeling pattern. Model records with `Schema.Struct(...)` plus a same-name interface, tagged variants with `Schema.TaggedStruct`/`Schema.TaggedUnion`, and typed errors with `Schema.TaggedError`.",
 		},
 	},
-	create(context) {
+	createOnce(context) {
 		const checkExpression = (callee: ESTree.Expression | null | undefined): void => {
 			if (!isBannedSchemaStatic(callee)) return;
 			if (callee === null || callee === undefined) return;

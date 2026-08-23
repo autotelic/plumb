@@ -22,9 +22,11 @@ export const noDecodeUnknownOptionRule = defineRule({
 				"`decodeUnknownOption` intentionally discards mismatch details, so callers cannot learn why decoding failed. Use `SchemaParser.decodeUnknownResult(schema)` (sync cores) or `SchemaParser.decodeUnknownEffect(schema)` (Effect channel) and fold the issue into your tagged error's evidence.",
 		},
 	},
-	create(context) {
-		if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
+	createOnce(context) {
 		return {
+		before() {
+			if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
+		},
 			MemberExpression(node) {
 				if (
 					!node.computed &&

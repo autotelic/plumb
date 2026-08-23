@@ -69,8 +69,7 @@ export const preferDieForPreconditionDefectsRule = defineRule({
 				"This bare throw escapes the Effect `Cause`. Raise the tagged defect with `Effect.die(new ...)` (or reclassify the case as a typed failure on the error channel) so supervisors and telemetry observe it.",
 		},
 	},
-	create(context) {
-		if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
+	createOnce(context) {
 		const check = (node: ESTree.ThrowStatement): void => {
 			let current: ESTree.Node | undefined = node.parent;
 			while (current !== undefined && current !== null && current.type !== "Program") {
@@ -85,6 +84,9 @@ export const preferDieForPreconditionDefectsRule = defineRule({
 				current = current.parent;
 			}
 		};
-		return { ThrowStatement: check };
+		return { 		before() {
+			if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
+		},
+ThrowStatement: check };
 	},
 });

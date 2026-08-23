@@ -76,8 +76,7 @@ export const preferOrderingMatchRule = defineRule({
 				"This ladder re-tests `{{subject}}` against zero {{links}} times to pick domain values. Replace it with a single Ordering.match({ onLessThan, onEqual, onGreaterThan }) over the comparison result so the direction mapping lives in one exhaustive table.",
 		},
 	},
-	create(context) {
-		if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
+	createOnce(context) {
 		const checkChain = (
 			tests: Array<{ subject: string | null; node: ESTree.Expression }>,
 			leaves: Array<ESTree.Node | null | undefined>,
@@ -95,6 +94,9 @@ export const preferOrderingMatchRule = defineRule({
 			});
 		};
 		return {
+		before() {
+			if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
+		},
 			ConditionalExpression(node) {
 				const tests: Array<{ subject: string | null; node: ESTree.Expression }> = [];
 				const leaves: Array<ESTree.Node | null | undefined> = [];

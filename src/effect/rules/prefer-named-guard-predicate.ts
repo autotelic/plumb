@@ -88,8 +88,7 @@ export const preferNamedGuardPredicateRule = defineRule({
 				"This guard anonymously chains domain predicates. Extract a named `P.Predicate` (composed via P.and/P.or/P.not) and lift the value with `Option.liftPredicate` so the guard is reusable, testable and self-describing.",
 		},
 	},
-	create(context) {
-		if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
+	createOnce(context) {
 		const checkGuard = (
 			test: ESTree.Expression,
 			branches: Array<ESTree.Node | null | undefined>,
@@ -99,6 +98,9 @@ export const preferNamedGuardPredicateRule = defineRule({
 			context.report({ node: test, messageId: "namedGuardPredicate" });
 		};
 		return {
+		before() {
+			if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
+		},
 			ConditionalExpression(node) {
 				checkGuard(node.test, [node.consequent, node.alternate]);
 			},

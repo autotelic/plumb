@@ -106,8 +106,7 @@ export const preferOptionPipelineRule = defineRule({
 				"This Option-returning function rejects through {{count}} scattered `Option.none()` guards. Extract named Predicates and compose them via pipe + Option.liftPredicate / Option.filter so the happy path reads as one pipeline.",
 		},
 	},
-	create(context) {
-		if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
+	createOnce(context) {
 		const check = (node: FunctionLike): void => {
 			if (!declaresOptionReturn(node)) return;
 			if (node.body === null || node.body === undefined) return;
@@ -116,6 +115,9 @@ export const preferOptionPipelineRule = defineRule({
 			context.report({ node, messageId: "preferPipeline", data: { count: String(count) } });
 		};
 		return {
+		before() {
+			if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
+		},
 			ArrowFunctionExpression: check,
 			FunctionExpression: check,
 			FunctionDeclaration: check,

@@ -158,9 +158,11 @@ export const noUnguardedJsonParseRule = defineRule({
 				"`JSON.parse` here throws a raw SyntaxError defect past the typed error channel. Channel it with `Effect.try({ try: ..., catch: ... })` failing a tagged reason (e.g. MalformedRenderError), or justify totality with a `SAFETY:` comment.",
 		},
 	},
-	create(context) {
-		if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
+	createOnce(context) {
 		return {
+		before() {
+			if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
+		},
 			CallExpression(node) {
 				if (!isJsonParseCall(node)) return;
 				if (!insideChannelReturningFunction(node)) return;

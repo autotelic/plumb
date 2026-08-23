@@ -66,8 +66,7 @@ export const noSwappablePrimitiveParamsRule = defineRule({
 				"`{{name}}` takes {{count}} adjacent `{{primitive}}` parameters, so a swapped call compiles. Brand each one (e.g. `type UserId = string & Brand.Brand<\"UserId\">`) so the compiler rejects transposed arguments.",
 		},
 	},
-	create(context) {
-		if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
+	createOnce(context) {
 		const reportFn = (name: string, id: ESTree.BindingIdentifier | null, fn: FnLike): void => {
 			const runs = swappableRuns(fn);
 			if (runs.length === 0) return;
@@ -80,6 +79,9 @@ export const noSwappablePrimitiveParamsRule = defineRule({
 			});
 		};
 		return {
+		before() {
+			if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
+		},
 			Program(node) {
 				for (const statement of node.body) {
 					const declaration = declaredStatement(statement);

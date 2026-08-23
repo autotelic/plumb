@@ -36,9 +36,11 @@ export const preferTaggedEnumRule = defineRule({
 				"This union hand-rolls `_tag` discrimination. Declare it as `type {{name}} = Data.TaggedEnum<{...}>` and derive constructors, `$is` guards and exhaustive `$match` via `Data.taggedEnum<{{name}}>()`, matching the rational.ts idiom.",
 		},
 	},
-	create(context) {
-		if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
+	createOnce(context) {
 		return {
+		before() {
+			if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
+		},
 			TSTypeAliasDeclaration(node) {
 				const annotation = node.typeAnnotation;
 				if (annotation.type !== "TSUnionType") return;

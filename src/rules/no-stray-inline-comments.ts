@@ -48,8 +48,10 @@ export const noStrayInlineCommentsRule = defineRule({
 	},
 	createOnce(context) {
 		return {
+			before() {
+				if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
+			},
 			Program(node) {
-				if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return;
 				const bodyRanges: Array<[number, number]> = [];
 				const visit = (current: ESTree.Node): void => {
 					if (

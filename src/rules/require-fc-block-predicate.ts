@@ -23,7 +23,7 @@ export const requireFcBlockPredicateRule = defineRule({
 				"This property predicate returns its expression value, which fast-check may score as `false`. Use a block body (`=> { ...; }`) so the predicate returns void.",
 		},
 	},
-	create(context) {
+	createOnce(context) {
 		const checkArguments = (node: ESTree.CallExpression): void => {
 			if (!isPropertyCall(node.callee)) return;
 			for (const argument of node.arguments) {

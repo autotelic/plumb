@@ -51,8 +51,7 @@ export const guardedOpMustReturnOptionRule = defineRule({
 				"`getOrThrow` turns absence into a runtime crash. Keep the Option in the type and handle None, or parse to a refined value so the empty branch can't exist.",
 		},
 	},
-	create(context) {
-		if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
+	createOnce(context) {
 
 		const checkReturnType = (node: FunctionWithReturnType) => {
 			const annotation = node.returnType;
@@ -72,6 +71,9 @@ export const guardedOpMustReturnOptionRule = defineRule({
 		};
 
 		return {
+		before() {
+			if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
+		},
 			ArrowFunctionExpression: checkReturnType,
 			FunctionDeclaration: checkReturnType,
 			FunctionExpression: checkReturnType,

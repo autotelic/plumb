@@ -42,12 +42,16 @@ export const noVagueTestFilenamesRule = defineRule({
 				"Test file `{{stem}}.test.ts` does not name the source it covers. Rename it after the module under test (e.g. `stripe.ts` -> `stripe.test.ts`) so searches for the source name land on its tests too.",
 		},
 	},
-	create(context) {
+	createOnce(context) {
+		// `before()` runs per file, so this closure holds the current file's path.
+		let filePath = "";
 		return {
+			before() {
+				filePath = context.filename.replaceAll("\\", "/");
+			},
 			Program(node) {
-				const path = context.filename.replaceAll("\\", "/");
-				if (!TEST_FILE.test(path)) return;
-				const stem = testFileStem(path);
+				if (!TEST_FILE.test(filePath)) return;
+				const stem = testFileStem(filePath);
 				if (!VAGUE_STEMS.has(stem.toLowerCase())) return;
 				context.report({
 					node,

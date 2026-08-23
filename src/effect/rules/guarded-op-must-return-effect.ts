@@ -100,9 +100,11 @@ export const guardedOpMustReturnEffectRule = defineRule({
 				"`Option.none()` here discards the reason for failure. Fail with a tagged MoneyError reason instead, or keep the Option strictly internal while a converted public API owns the error channel.",
 		},
 	},
-	create(context) {
-		if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
+	createOnce(context) {
 		return {
+		before() {
+			if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
+		},
 			ReturnStatement(node) {
 				if (!hasExportAncestor(node)) return;
 				if (enclosingFunctionName(node)?.endsWith("Option")) return;

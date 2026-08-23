@@ -32,10 +32,12 @@ export const noImpossibleBranchThrowRule = defineRule({
 				"This branch is asserted impossible by hand (\"{{message}}\"). If it truly cannot occur, parse/encode it out of the type (Option, parsed/refined type) so the compiler rejects it; otherwise return a structured failure.",
 		},
 	},
-	create(context) {
-		if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
+	createOnce(context) {
 
 		return {
+		before() {
+			if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
+		},
 			ThrowStatement(node) {
 				const message = throwMessage(node);
 				if (message === null) return;

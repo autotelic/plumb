@@ -23,10 +23,13 @@ export const requireJsdocOnExportedRule = defineRule({
 				"Exported function `{{name}}` has no JSDoc block. Document the contract with @param/@returns so the jsdoc rules can enforce it.",
 		},
 	},
-	create(context) {
-		if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
+	createOnce(context) {
 		const jsdocFollowsLines = new Set<number>();
 		return {
+		before() {
+			if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
+			jsdocFollowsLines.clear();
+		},
 			Program(node) {
 				jsdocFollowsLines.clear();
 				for (const comment of context.sourceCode.getAllComments() as CommentLike[]) {

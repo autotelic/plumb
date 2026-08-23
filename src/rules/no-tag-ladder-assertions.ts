@@ -46,9 +46,11 @@ export const noTagLadderAssertionsRule = defineRule({
 				"This _tag ladder re-implements variant assertion by hand. Use the shared `assertTag(value, tag)` helper so the branch narrows types and fails with a uniform message.",
 		},
 	},
-	create(context) {
-		if (!TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
+	createOnce(context) {
 		return {
+		before() {
+			if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
+		},
 			IfStatement(node) {
 				if (!isTagComparison(node.test)) return;
 				if (isBuiltinThrowBranch(node.consequent) || isBuiltinThrowBranch(node.alternate)) {

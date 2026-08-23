@@ -37,11 +37,15 @@ export const optionCoreNeedsEffectPublicRule = defineRule({
 				"`{{name}}` collapses failures to `Option.none()` with no converted public twin. Export `{{base}}` returning `Effect.Effect<T, MoneyError>` (or mark the core `@deprecated` if retired), so callers can match Overflow vs InvalidInput vs ZeroDivisor.",
 		},
 	},
-	create(context) {
-		if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
+	createOnce(context) {
 		const cores: Array<{ node: ESTree.Node; name: string; base: string }> = [];
 		const exported = new Set<string>();
 		return {
+		before() {
+			if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
+			cores.length = 0;
+			exported.clear();
+		},
 			"ExportNamedDeclaration > VariableDeclaration > VariableDeclarator, ExportNamedDeclaration > FunctionDeclaration":
 				(node: ESTree.Node) => {
 					const declaratorId = node.type === "FunctionDeclaration" ? null : (node as ESTree.VariableDeclarator).id;

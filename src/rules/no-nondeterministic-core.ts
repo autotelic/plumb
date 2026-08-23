@@ -32,9 +32,11 @@ export const noNondeterministicCoreRule = defineRule({
 				"`new Date()` captures wall-clock time here, making output non-reproducible. Take the instant as a parameter (or use a fixed epoch for pure conversions).",
 		},
 	},
-	create(context) {
-		if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
+	createOnce(context) {
 		return {
+		before() {
+			if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
+		},
 			MemberExpression(node) {
 				const property = node.property;
 				if (node.computed || property.type !== "Identifier" || !NONDETERMINISTIC_MEMBERS.has(property.name)) {

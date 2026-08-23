@@ -31,8 +31,7 @@ export const preferEffectGenForGuardLaddersRule = defineRule({
 				"This function chains {{count}} Effect ladder combinators. Rewrite with `Effect.gen` + `yield*` so the guard sequence reads top-to-bottom.",
 		},
 	},
-	create(context) {
-		if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return {};
+	createOnce(context) {
 		const counts = new Map<ESTree.Node, number>();
 		const reported = new Set<ESTree.Node>();
 		const enclosingFunction = (node: ESTree.Node): ESTree.Node | undefined => {
@@ -50,6 +49,11 @@ export const preferEffectGenForGuardLaddersRule = defineRule({
 			return undefined;
 		};
 		return {
+		before() {
+			if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
+			counts.clear();
+			reported.clear();
+		},
 			CallExpression(node) {
 				if (!isEffectLadderCombinator(node)) return;
 				const owner = enclosingFunction(node);
