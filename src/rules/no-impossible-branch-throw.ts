@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { isRecordObject, isString } from "../shared/structural.ts";
 
 const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 const IMPOSSIBLE_MESSAGE =
@@ -9,10 +10,10 @@ const IMPOSSIBLE_MESSAGE =
 function throwMessage(node: ESTree.ThrowStatement): string | null {
 	const argument = node.argument;
 	if (argument === null || argument === undefined) return null;
-	if (argument.type === "Literal" && typeof argument.value === "string") return argument.value;
+	if (argument.type === "Literal" && isString(argument.value)) return argument.value;
 	if (argument.type === "NewExpression") {
 		const first = argument.arguments[0];
-		if (first !== undefined && first.type === "Literal" && typeof first.value === "string") {
+		if (first !== undefined && first.type === "Literal" && isString(first.value)) {
 			return first.value;
 		}
 	}

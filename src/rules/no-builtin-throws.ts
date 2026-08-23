@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { isRecordObject, isString } from "../shared/structural.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
 
@@ -56,7 +57,7 @@ export const noBuiltinThrowsRule = defineRule({
 	createOnce(context) {
 		const option = context.options?.[0];
 		const allowed: ReadonlySet<string> = new Set(
-			typeof option === "object" && option !== null && !Array.isArray(option)
+			isRecordObject(option) && !Array.isArray(option)
 				? ((option as Options).allow ?? [])
 				: [],
 		);

@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { isRecordObject, isString } from "../shared/structural.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
 
@@ -25,7 +26,7 @@ function isTagComparison(expression: ESTree.Expression): boolean {
 	const hasTagMember = sides.some(
 		(side) => side.type === "MemberExpression" && side.property.type === "Identifier" && side.property.name === "_tag",
 	);
-	const hasStringLiteral = sides.some((side) => side.type === "Literal" && typeof side.value === "string");
+	const hasStringLiteral = sides.some((side) => side.type === "Literal" && isString(side.value));
 	return hasTagMember && hasStringLiteral;
 }
 

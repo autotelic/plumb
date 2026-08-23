@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { isRecordObject, isString } from "../shared/structural.ts";
 
 interface Options {
 	readonly groups?: ReadonlyArray<readonly string[]>;
@@ -68,7 +69,7 @@ export const noTransposedFieldReadsRule = defineRule({
 	createOnce(context) {
 		const option = context.options?.[0];
 		const rawGroups =
-			typeof option === "object" && option !== null && !Array.isArray(option)
+			isRecordObject(option) && !Array.isArray(option)
 				? (option as Options).groups
 				: undefined;
 		const groups = (rawGroups ?? [["numerator", "denominator"]]).map((fields) => ({

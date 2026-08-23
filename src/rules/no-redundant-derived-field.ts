@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { isRecordObject, isString } from "../shared/structural.ts";
 
 const COUNT_SUFFIX = /(?:Count|Length|Size)$/u;
 const COUNT_PREFIX = /^(?:count|num|numberOf|total)(?=[A-Z])/u;
@@ -163,7 +164,7 @@ export const noRedundantDerivedFieldRule = defineRule({
 		function memberList(bodyNode: unknown): ESTree.TSSignature[] {
 			if (Array.isArray(bodyNode)) return bodyNode as ESTree.TSSignature[];
 			const record = bodyNode as { members?: unknown; body?: unknown } | null;
-			if (record === null || typeof record !== "object") return [];
+			if (record === null || !isRecordObject(record)) return [];
 			if (Array.isArray(record.members)) return record.members as ESTree.TSSignature[];
 			if (Array.isArray(record.body)) return record.body as ESTree.TSSignature[];
 			return [];

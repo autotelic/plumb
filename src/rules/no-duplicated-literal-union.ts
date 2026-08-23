@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { isRecordObject, isString } from "../shared/structural.ts";
 
 /** Sorted string-literal members of a union annotation, or null if it isn't one. */
 function literalUnionKey(annotation: ESTree.TSType): string[] | null {
@@ -8,7 +9,7 @@ function literalUnionKey(annotation: ESTree.TSType): string[] | null {
 	const literals: string[] = [];
 	for (const member of types) {
 		if (member.type !== "TSLiteralType" || member.literal.type !== "Literal") return null;
-		if (typeof member.literal.value !== "string") return null;
+		if (!isString(member.literal.value)) return null;
 		literals.push(member.literal.value);
 	}
 	return [...literals].sort((a, b) => a.localeCompare(b));

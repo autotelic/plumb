@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { isRecordObject, isString } from "../../shared/structural.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
 
@@ -15,7 +16,7 @@ function hasLiteralTagProperty(member: ESTree.Node): boolean {
 	if (annotation === undefined || annotation === null || annotation.type !== "TSLiteralType") {
 		return false;
 	}
-	return annotation.literal.type === "Literal" && typeof annotation.literal.value === "string";
+	return annotation.literal.type === "Literal" && isString(annotation.literal.value);
 }
 
 function isTaggedLiteralMember(member: ESTree.TSType): boolean {

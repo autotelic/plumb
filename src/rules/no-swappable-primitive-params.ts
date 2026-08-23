@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { isRecordObject, isString } from "../shared/structural.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
 
@@ -18,7 +19,7 @@ const PRIMITIVES: ReadonlySet<string> = new Set(PRIMITIVE_KEYWORDS.values());
 function barePrimitive(param: ESTree.BindingPattern): string | null {
 	if (param.type !== "Identifier") return null;
 	const annotation = param.typeAnnotation?.typeAnnotation;
-	if (typeof annotation !== "object" || annotation === null) return null;
+	if (!isRecordObject(annotation)) return null;
 	return PRIMITIVE_KEYWORDS.get(annotation.type) ?? null;
 }
 
