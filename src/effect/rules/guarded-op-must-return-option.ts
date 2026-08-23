@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { ancestorsOf } from "../../shared/ancestors.ts";
 
 const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 
@@ -83,7 +84,7 @@ export const guardedOpMustReturnOptionRule = defineRule({
 			Identifier(node) {
 				if (node.name !== "getOrThrow") return;
 				// getAncestors returns an internal Node type; recover the ESTree union for narrowing.
-				const parent = (context.sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>).at(-1);
+				const parent = (ancestorsOf(context.sourceCode, node)).at(-1);
 				if (parent?.type === "MemberExpression" && parent.property === node) return;
 				context.report({ node, messageId: "optionEscape" });
 			},

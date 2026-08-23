@@ -10,6 +10,8 @@ import {
 
 import type { ESTree, Scope, SourceCode, Variable } from "@oxlint/plugins";
 
+import { ancestorsOf } from "../shared/ancestors.ts";
+
 type FunctionExpression = ESTree.ArrowFunctionExpression | ESTree.Function;
 
 function unwrapExpression(expression: ESTree.Expression): ESTree.Expression {
@@ -45,10 +47,6 @@ function variableDeclarator(variable: Variable): ESTree.VariableDeclarator | nul
 	return definition?.type === "Variable" && definition.node.type === "VariableDeclarator"
 		? definition.node
 		: null;
-}
-
-function ancestorsOf(sourceCode: SourceCode, node: ESTree.Node): ReadonlyArray<ESTree.Node> {
-	return sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>;
 }
 
 function isStableConstVariable(

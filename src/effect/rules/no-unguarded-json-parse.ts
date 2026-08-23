@@ -2,6 +2,8 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree, SourceCode } from "@oxlint/plugins";
 
+import { ancestorsOf } from "../../shared/ancestors.ts";
+
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
 
 const commentOwnerKinds = new Set([
@@ -21,10 +23,6 @@ function isJsonParseCall(node: ESTree.CallExpression): boolean {
 		callee.property.type === "Identifier" &&
 		callee.property.name === "parse"
 	);
-}
-
-function ancestorsOf(sourceCode: SourceCode, node: ESTree.Node): ReadonlyArray<ESTree.Node> {
-	return sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>;
 }
 
 /** Whether the nearest annotated function returns through the Effect/Either/Option channel. */

@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { ancestorsOf } from "../../shared/ancestors.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
 
@@ -79,7 +80,7 @@ export const noManualFieldGuardsRule = defineRule({
 		const pending: Array<{ node: ESTree.Node; messageId: "regexTest" | "optionGuard" }> = [];
 		const optionVars = new Set<string>();
 		const queue = (node: ESTree.Node, messageId: "regexTest" | "optionGuard"): void => {
-			if (insideMakeFilter(node, context.sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>)) return;
+			if (insideMakeFilter(node, ancestorsOf(context.sourceCode, node))) return;
 			pending.push({ node, messageId });
 		};
 		return {

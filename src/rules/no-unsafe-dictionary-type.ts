@@ -9,6 +9,8 @@ import {
 
 import type { ESTree, SourceCode } from "@oxlint/plugins";
 
+import { ancestorsOf } from "../shared/ancestors.ts";
+
 const typeNodeKinds: ReadonlySet<string> = new Set([
 	"JSDocNonNullableType",
 	"JSDocNullableType",
@@ -55,10 +57,6 @@ function isTypeNode(node: ESTree.Node): node is ESTree.TSType {
 
 function typeReferenceName(type: ESTree.TSTypeReference): string | null {
 	return type.typeName.type === "Identifier" ? type.typeName.name : null;
-}
-
-function ancestorsOf(sourceCode: SourceCode, node: ESTree.Node): ReadonlyArray<ESTree.Node> {
-	return sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>;
 }
 
 function isInsideTypeAliasDeclaration(sourceCode: SourceCode, node: ESTree.Node): boolean {

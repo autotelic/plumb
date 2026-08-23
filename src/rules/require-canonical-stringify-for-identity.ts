@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { ancestorsOf } from "../shared/ancestors.ts";
 
 const COMPARISON_OPERATORS = new Set(["===", "!==", "==", "!="]);
 const MAP_KEY_METHODS = new Set(["get", "has", "delete"]);
@@ -47,7 +48,7 @@ export const requireCanonicalStringifyForIdentityRule = defineRule({
 			CallExpression(node) {
 				if (!isJsonStringify(node)) return;
 				// getAncestors returns an internal Node type; recover the ESTree union for narrowing.
-				const parent = (context.sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>).at(-1);
+				const parent = (ancestorsOf(context.sourceCode, node)).at(-1);
 				if (parent === null || parent === undefined) return;
 
 				if (parent.type === "BinaryExpression" && COMPARISON_OPERATORS.has(parent.operator)) {

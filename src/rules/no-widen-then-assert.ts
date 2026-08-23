@@ -1,6 +1,8 @@
 import { defineRule } from "@oxlint/plugins";
 import type { ESTree, SourceCode, Variable } from "@oxlint/plugins";
 
+import { ancestorsOf } from "../shared/ancestors.ts";
+
 type BroadTypeKind = "top" | "object" | "record";
 
 type KnownValueEvidence = {
@@ -157,10 +159,6 @@ function isDefinitelyNarrowerRecordType(type: ESTree.TSType): boolean {
   return (
     parameters.length === 2 && parameters[1] !== undefined && !isUnknownOrAnyType(parameters[1])
   );
-}
-
-function ancestorsOf(sourceCode: SourceCode, node: ESTree.Node): ReadonlyArray<ESTree.Node> {
-  return sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>;
 }
 
 function functionBoundary(sourceCode: SourceCode, node: ESTree.Node): ESTree.Node | null {

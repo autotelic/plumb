@@ -2,6 +2,8 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree, SourceCode } from "@oxlint/plugins";
 
+import { ancestorsOf } from "../../shared/ancestors.ts";
+
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
 
 function unwrapParentheses(expression: ESTree.Expression): ESTree.Expression {
@@ -17,10 +19,6 @@ function isOptionObject(node: ESTree.Expression | ESTree.Super): boolean {
 		return node.property.name === "Option";
 	}
 	return false;
-}
-
-function ancestorsOf(sourceCode: SourceCode, node: ESTree.Node): ReadonlyArray<ESTree.Node> {
-	return sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>;
 }
 
 /** The name of the function whose body contains this node, if determinable. */

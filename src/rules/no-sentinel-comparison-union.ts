@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { ancestorsOf } from "../shared/ancestors.ts";
 
 const SENTINELS = new Set<number>([-1, 0, 1]);
 const ORDERING_OPERATORS = new Set([">", "<", ">=", "<="]);
@@ -138,12 +139,12 @@ export const noSentinelComparisonUnionRule = defineRule({
 		return {
 			ConditionalExpression(node) {
 				if (!chainIsSentinel(node)) return;
-				if (coveredByOuterSentinelChain(node, context.sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>)) return;
+				if (coveredByOuterSentinelChain(node, ancestorsOf(context.sourceCode, node))) return;
 				if (!hasOrderingComparison(node)) return;
 				context.report({ node, messageId: "sentinelComparisonUnion" });
 			},
 			IfStatement(node) {
-				if (isElseIfBranch(node, context.sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>)) return;
+				if (isElseIfBranch(node, ancestorsOf(context.sourceCode, node))) return;
 				if (!ifChainIsSentinel(node)) return;
 				if (!chainConditions(node).some(hasOrderingComparison)) return;
 				context.report({ node, messageId: "sentinelComparisonUnion" });

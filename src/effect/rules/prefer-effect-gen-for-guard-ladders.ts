@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { ancestorsOf } from "../../shared/ancestors.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
 
@@ -35,7 +36,7 @@ export const preferEffectGenForGuardLaddersRule = defineRule({
 		const counts = new Map<ESTree.Node, number>();
 		const reported = new Set<ESTree.Node>();
 		const enclosingFunction = (node: ESTree.Node): ESTree.Node | undefined => {
-			const ancestors = context.sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>;
+			const ancestors = ancestorsOf(context.sourceCode, node);
 			for (let index = ancestors.length - 1; index >= 0; index--) {
 				const current = ancestors[index]!;
 				if (current.type === "Program") break;

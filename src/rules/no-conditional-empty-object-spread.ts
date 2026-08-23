@@ -1,5 +1,6 @@
 import { defineRule } from "@oxlint/plugins";
 import type { ESTree } from "@oxlint/plugins";
+import { ancestorsOf } from "../shared/ancestors.ts";
 
 function unwrapParentheses(node: ESTree.Expression): ESTree.Expression {
   let current = node;
@@ -39,7 +40,7 @@ export const noConditionalEmptyObjectSpreadRule = defineRule({
     return {
       SpreadElement(node) {
         // getAncestors returns an internal Node type; recover the ESTree union for narrowing.
-        const parent = (context.sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>).at(-1);
+        const parent = (ancestorsOf(context.sourceCode, node)).at(-1);
         if (parent?.type !== "ObjectExpression") return;
 
         if (isConditionalEmptyObjectSpread(node.argument)) {

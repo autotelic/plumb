@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { ancestorsOf } from "../shared/ancestors.ts";
 
 import { lexicalTypeParameterNames } from "../shared/lexical-type-parameters.ts";
 
@@ -83,7 +84,7 @@ export const noUnknownReturnsRule = defineRule({
           annotation.typeAnnotation,
           lexicalTypeParameterNames(
             node,
-            context.sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>,
+            ancestorsOf(context.sourceCode, node),
             context.sourceCode.visitorKeys,
           ),
         )
