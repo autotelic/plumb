@@ -1,6 +1,6 @@
 {
   "name": "plumb",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "description": "Opinionated Oxlint rules that keep TypeScript true — generic and Effect-specific patterns, maintained as one source of truth for the autotelic repos.",
   "license": "MIT",
