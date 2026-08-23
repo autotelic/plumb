@@ -231,10 +231,21 @@ export const noSingleUsePrivateFunctionsRule = defineRule({
 			Program(node) {
 				const sourceCode = context.sourceCode;
 				const exported = exportedNames(node);
+				// A leading JSDoc block means the name was deliberately documented:
+				// named intent at a single site is composition, not indirection.
+				const documented = new Set<ESTree.Node>();
+				for (const statement of node.body) {
+					const comments = context.sourceCode.getCommentsBefore(statement);
+					const last = comments[comments.length - 1];
+					if (last !== undefined && last.type === "Block" && last.value.startsWith("*")) {
+						documented.add(statement);
+					}
+				}
 				const candidates: Array<Candidate> = [];
 				for (const statement of node.body) {
 					const kind = typeOf(statement);
-					if (kind === "FunctionDeclaration") {
+					if (documented.has(statement)) continue;
+				if (kind === "FunctionDeclaration") {
 						const name = cast<{
 							readonly id?: { readonly name: string } | null;
 						}>(statement).id?.name;
@@ -245,7 +256,8 @@ export const noSingleUsePrivateFunctionsRule = defineRule({
 						}
 						continue;
 					}
-					if (kind === "TSTypeAliasDeclaration" || kind === "TSInterfaceDeclaration") {
+					if (documented.has(statement)) continue;
+				if (kind === "TSTypeAliasDeclaration" || kind === "TSInterfaceDeclaration") {
 						const name = cast<{ readonly id: { readonly name: string } }>(statement).id.name;
 						if (exported.has(name)) continue;
 						const variable = declaredVariablesOf(sourceCode, statement, name);

@@ -103,6 +103,29 @@ function displayName(sourceCode: SourceCode, node: ESTree.Node): string {
 	return "(anonymous)";
 }
 
+/** Primitive annotations transpose silently; structural ones fail the compiler. */
+const PRIMITIVE_TYPE_TEXT = /^(?:string|number|bigint|boolean|unknown|any|null|undefined|void)$/u;
+
+/**
+ * Whether every positional parameter carries a distinct non-primitive type:
+ * transposing such arguments is a compile error, so ordering needs no guard.
+ */
+function transpositionSafe(
+	sourceCode: SourceCode,
+	params: ReadonlyArray<ESTree.ParamPattern>,
+): boolean {
+	const texts: Array<string> = [];
+	for (const param of params) {
+		if (param.type !== "Identifier") return false;
+		const annotation = param.typeAnnotation;
+		if (annotation === null || annotation === undefined) return false;
+		const text = sourceCode.getText(annotation.typeAnnotation).replaceAll(" ", "");
+		if (text === "" || PRIMITIVE_TYPE_TEXT.test(text)) return false;
+		texts.push(text);
+	}
+	return new Set(texts).size === texts.length;
+}
+
 /** Owned functions taking several positional inputs accept transposed arguments silently; require one payload object. */
 export const noMultipleFunctionParamsRule = defineRule({
 	meta: {
@@ -124,11 +147,12 @@ export const noMultipleFunctionParamsRule = defineRule({
 				rawOptions?.[0]?.exemptRouteBasenames ?? DEFAULT_ROUTE_BASENAMES,
 			),
 		};
-		const filename = context.filename;
 		const check = (node: ESTree.Node): void => {
+			const filename = context.filename;
 			const fn = cast<FunctionLike>(node);
 			if (fn.params.length <= DEFAULT_MAX_PARAMS) return;
 			if (!isOwnedFunction(context.sourceCode, node)) return;
+			if (transpositionSafe(context.sourceCode, fn.params)) return;
 			if (isExemptRouteHandler(options, filename, context.sourceCode, node)) return;
 			context.report({
 				node,
@@ -141,7 +165,7 @@ export const noMultipleFunctionParamsRule = defineRule({
 		};
 		return {
 			before() {
-				if (TEST_FILE.test(filename.replaceAll("\\", "/"))) return false;
+				if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
 			},
 			FunctionDeclaration: check,
 			FunctionExpression: check,

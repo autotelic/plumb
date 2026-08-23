@@ -28,12 +28,6 @@ function parameterAnnotation(parameter: Parameter): ESTree.TSTypeAnnotation | nu
 	return parameter.typeAnnotation;
 }
 
-function parameterName(parameter: Parameter, sourceCode: SourceCode): string {
-	return parameter.type === "Identifier"
-		? parameter.name
-		: sourceCode.getText(parameter).replace(/\s*:\s*object\s*$/u, "");
-}
-
 /** Ban the broad object type on function inputs, including local aliases to object. */
 export const noObjectParametersRule = defineRule({
 	meta: {
@@ -94,7 +88,12 @@ export const noObjectParametersRule = defineRule({
 				context.report({
 					node: annotation.typeAnnotation,
 					messageId: "objectParameter",
-					data: { parameter: parameterName(parameter, context.sourceCode) },
+					data: {
+						parameter:
+							parameter.type === "Identifier"
+								? parameter.name
+								: context.sourceCode.getText(parameter).replace(/\s*:\s*object\s*$/u, ""),
+					},
 				});
 			}
 		};

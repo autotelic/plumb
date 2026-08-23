@@ -3,6 +3,7 @@ import { defineRule } from "@oxlint/plugins";
 import type { ESTree, SourceCode } from "@oxlint/plugins";
 
 import { ancestorsOf } from "../../shared/ancestors.ts";
+import { cast } from "../../shared/structural.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
 
@@ -53,6 +54,7 @@ function variableDeclaratorName(sourceCode: SourceCode, node: ESTree.Node): stri
 }
 
 function functionExpressionName(sourceCode: SourceCode, node: ESTree.Node): string | null {
+	// SAFETY: caller narrows to FunctionDeclaration/FunctionExpression before calling.
 	const fn = node as ESTree.Function;
 	if (fn.id?.name) return fn.id.name;
 	return variableDeclaratorName(sourceCode, node);
@@ -171,16 +173,14 @@ function findOptionType(type: ESTree.TSType): string | null {
 			for (const element of type.elementTypes) {
 				// SAFETY: TSTupleElement is either a named member carrying elementType or a bare TSType.
 				const payload =
-					(element as { elementType?: ESTree.TSType }).elementType ?? (element as ESTree.TSType);
+					cast<{ elementType?: ESTree.TSType }>(element).elementType ?? cast<ESTree.TSType>(element);
 				const found = findOptionType(payload);
 				if (found !== null) return found;
 			}
 			return null;
 		case "TSTypeOperator": {
-			// oxlint exposes the operand as `annotation`; other bridges as `typeAnnotation`.
-			const operand =
-				(type as { annotation?: ESTree.TSType }).annotation ??
-				(type as { typeAnnotation?: ESTree.TSType }).typeAnnotation;
+			// SAFETY: oxc exposes the operand as typeAnnotation; the annotation alias is legacy.
+			const operand = cast<{ typeAnnotation?: ESTree.TSType }>(type).typeAnnotation;
 			return operand === undefined || operand === null ? null : findOptionType(operand);
 		}
 		case "TSArrayType":
@@ -188,7 +188,7 @@ function findOptionType(type: ESTree.TSType): string | null {
 		case "TSTypeLiteral":
 			for (const member of type.members) {
 				if (member.type !== "TSPropertySignature") continue;
-				const annotation = (member.typeAnnotation as { typeAnnotation?: ESTree.TSType } | undefined)
+				const annotation = cast<{ typeAnnotation?: ESTree.TSType } | undefined>(member.typeAnnotation)
 					?.typeAnnotation;
 				if (annotation === undefined) continue;
 				const found = findOptionType(annotation);

@@ -16,6 +16,14 @@ import { preferOrderingMatchRule } from "./rules/prefer-ordering-match.ts";
 import { preferOptionPipelineRule } from "./rules/prefer-option-pipeline.ts";
 import { preferTaggedEnumRule } from "./rules/prefer-tagged-enum.ts";
 import { requireSchemaTypeDerivationRule } from "./rules/require-schema-type-derivation.ts";
+import { noDirectFetchRule } from "./rules/no-direct-fetch.ts";
+import { noDirectBrowserStorageRule } from "./rules/no-direct-browser-storage.ts";
+import { noTryCatchRule } from "./rules/no-try-catch.ts";
+import { noSilentErrorSwallowRule } from "./rules/no-silent-error-swallow.ts";
+import { preferEffectMatchRule } from "./rules/prefer-effect-match.ts";
+import { noNestedLayerProvideRule } from "./rules/no-nested-layer-provide.ts";
+import { noCascadingLayerProvideRule } from "./rules/no-cascading-layer-provide.ts";
+import { noStaticEffectServiceForwardersRule } from "./rules/no-static-effect-service-forwarders.ts";
 
 /** Opt-in Oxlint rules for Effect service and Layer architecture. */
 const plumbEffectPlugin = eslintCompatPlugin({
@@ -37,6 +45,14 @@ const plumbEffectPlugin = eslintCompatPlugin({
 		"prefer-ordering-match": preferOrderingMatchRule,
 		"prefer-tagged-enum": preferTaggedEnumRule,
 		"require-schema-type-derivation": requireSchemaTypeDerivationRule,
+		"no-direct-fetch": noDirectFetchRule,
+		"no-direct-browser-storage": noDirectBrowserStorageRule,
+		"no-try-catch": noTryCatchRule,
+		"no-silent-error-swallow": noSilentErrorSwallowRule,
+		"prefer-effect-match": preferEffectMatchRule,
+		"no-nested-layer-provide": noNestedLayerProvideRule,
+		"no-cascading-layer-provide": noCascadingLayerProvideRule,
+		"no-static-effect-service-forwarders": noStaticEffectServiceForwardersRule,
 	},
 });
 

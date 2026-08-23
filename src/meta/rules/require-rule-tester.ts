@@ -4,10 +4,6 @@ import type { ESTree } from "@oxlint/plugins";
 
 const RULE_TEST_FILE = /[/\\](?:rules|effect[/\\]rules|meta[/\\]rules)[/\\][^/\\]+\.test\.[cm]?[jt]sx?$/u;
 
-function isIdentifier(node: ESTree.Expression | ESTree.PrivateIdentifier, name: string): boolean {
-	return node.type === "Identifier" && node.name === name;
-}
-
 /** Tests for lint rules belong in Oxlint's RuleTester: valid/invalid cases with message and span assertions. */
 export const requireRuleTesterRule = defineRule({
 	meta: {
@@ -45,7 +41,8 @@ export const requireRuleTesterRule = defineRule({
 				if (
 					node.callee.type === "MemberExpression" &&
 					!node.callee.computed &&
-					isIdentifier(node.callee.property, "run")
+					node.callee.property.type === "Identifier" &&
+					node.callee.property.name === "run"
 				) {
 					callsRun = true;
 				}

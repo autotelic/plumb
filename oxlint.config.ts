@@ -53,6 +53,9 @@ export default defineConfig({
     "plumb/require-published-order": "error",
     "plumb/require-safety-comment-for-type-assertion": "error",
     "plumb/prefer-property-tests": "error",
+    "plumb/no-multiple-function-params": "error",
+    "plumb/no-optional-function-parameters": "error",
+    "plumb/no-single-use-private-functions": "error",
     "plumb-meta/no-manual-ancestor-walks": "error",
     "plumb-meta/prefer-before-file-scope": "error",
     "plumb-meta/require-create-once": "error",
@@ -104,6 +107,18 @@ export default defineConfig({
       rules: {
         "plumb/no-reinterpret-cast": "off", // plumb:allow-off typed bridge over raw payloads
         "plumb-meta/require-rule-tester": "error",
+      },
+    },
+    {
+      // Test harness helpers adapt plugin objects to RuleTester; their loose
+      // parameters, casts, and arity are the adapter surface itself.
+      files: ["src/rules/test-utils.ts"],
+      rules: {
+        "plumb/no-multiple-function-params": "off", // plumb:allow-off adapter arity
+        "plumb/no-unknown-parameters": "off", // plumb:allow-off engine-typed passthroughs
+        "plumb/no-reinterpret-cast": "off", // plumb:allow-off compat-layer recovery
+        "plumb/no-chained-type-assertions": "off", // plumb:allow-off compat-layer recovery
+        "plumb/require-safety-comment-for-type-assertion": "off", // plumb:allow-off compat-layer recovery
       },
     },
   ],

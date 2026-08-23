@@ -45,6 +45,9 @@ import { noAnonymousWideTuplesRule } from "./rules/no-anonymous-wide-tuples.ts";
 import { noTagLadderAssertionsRule } from "./rules/no-tag-ladder-assertions.ts";
 import { noRedundantDerivedFieldRule } from "./rules/no-redundant-derived-field.ts";
 import { requireExhaustiveTagSwitchRule } from "./rules/require-exhaustive-tag-switch.ts";
+import { noMultipleFunctionParamsRule } from "./rules/no-multiple-function-params.ts";
+import { noOptionalFunctionParametersRule } from "./rules/no-optional-function-parameters.ts";
+import { noSingleUsePrivateFunctionsRule } from "./rules/no-single-use-private-functions.ts";
 
 /** Generic Oxlint rules that reject low-evidence and low-signal implementation patterns. */
 const plumbPlugin = eslintCompatPlugin({
@@ -94,6 +97,9 @@ const plumbPlugin = eslintCompatPlugin({
 		"no-redundant-derived-field": noRedundantDerivedFieldRule,
 		"require-exhaustive-tag-switch": requireExhaustiveTagSwitchRule,
 		"prefer-property-tests": preferPropertyTestsRule,
+		"no-multiple-function-params": noMultipleFunctionParamsRule,
+		"no-optional-function-parameters": noOptionalFunctionParametersRule,
+		"no-single-use-private-functions": noSingleUsePrivateFunctionsRule,
 	},
 });
 

@@ -27,12 +27,14 @@ export function collectReports(
 	return reports;
 }
 
+/** Bind vitest reporting into RuleTester so suites run under the project runner. */
 export function makeTester(): RuleTester {
 	RuleTester.describe = (name, fn) => describe(name, fn);
 	RuleTester.it = (name, fn) => it(name, fn);
 	return new RuleTester({ languageOptions: { parserOptions: { lang: "ts" } } });
 }
 
+/** Build an ESTree member expression on a fixed `node` object for visitor probes. */
 export function memberExpression(computed: boolean, propertyName_: string): ESTree.Node {
 	return {
 		type: "MemberExpression",
