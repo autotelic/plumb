@@ -13,17 +13,22 @@ function lastTypeNameSegment(typeName: ESTree.Node): string | null {
  * payload of a Data.TaggedEnum (i.e. `{ Variant: Payload }` inside the enum's
  * type argument), otherwise null.
  */
-function variantPayloadSignature(node: ESTree.TSTypeLiteral): ESTree.TSPropertySignature | null {
-	const annotation = node.parent;
-	if (annotation === null || annotation.type !== "TSTypeAnnotation") return null;
-	const signature = annotation.parent;
-	if (signature === null || signature.type !== "TSPropertySignature") return null;
-	const outer = signature.parent;
-	if (outer === null || outer.type !== "TSTypeLiteral") return null;
-	const args = outer.parent;
-	if (args === null) return null;
-	const reference = args.parent;
-	if (reference === null || reference.type !== "TSTypeReference") return null;
+function variantPayloadSignature(
+	node: ESTree.TSTypeLiteral,
+	ancestors: ReadonlyArray<ESTree.Node>,
+): ESTree.TSPropertySignature | null {
+	// Fixed-depth upward walk: parent, grandparent, ... via nearest-first indexes.
+	const at = (depth: number): ESTree.Node | undefined => ancestors[ancestors.length - 1 - depth];
+	const annotation = at(0);
+	if (annotation?.type !== "TSTypeAnnotation") return null;
+	const signature = at(1);
+	if (signature?.type !== "TSPropertySignature") return null;
+	const outer = at(2);
+	if (outer?.type !== "TSTypeLiteral") return null;
+	const args = at(3);
+	if (args === undefined) return null;
+	const reference = at(4);
+	if (reference?.type !== "TSTypeReference") return null;
 	const name = lastTypeNameSegment(reference.typeName);
 	return name !== null && /TaggedEnum$/u.test(name) ? signature : null;
 }
@@ -55,7 +60,10 @@ export const noProductOfStateBooleansRule = defineRule({
 	createOnce(context) {
 		return {
 			TSTypeLiteral(node) {
-				const signature = variantPayloadSignature(node);
+				const signature = variantPayloadSignature(
+					node,
+					context.sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>,
+				);
 				if (signature === null) return;
 				const count = booleanMemberCount(node);
 				if (count < 2) return;
