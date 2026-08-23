@@ -46,7 +46,7 @@ export const noTransposedFieldReadsRule = defineRule({
 		type: "problem",
 		docs: {
 			description:
-				"Disallow directly reading two or more configured role fields from the same expression in reversed order inside call arguments or object literals; require a named domain operation instead.",
+				'Disallow directly reading two or more configured role fields from the same expression in reversed order inside call arguments or object literals; require a named domain operation instead. Configure `groups` with your domain\'s canonical field pairings (e.g. groups: [["startDate", "endDate"]]).',
 		},
 		messages: {
 			transposedFieldReads:
@@ -59,13 +59,15 @@ export const noTransposedFieldReadsRule = defineRule({
 					groups: {
 						type: "array",
 						items: { type: "array", items: { type: "string" }, minItems: 2 },
-						minItems: 1,
 					},
 				},
 				additionalProperties: false,
 			},
 		],
-		defaultOptions: [{ groups: [["numerator", "denominator"]] }],
+		// Inert until configured: which field pairs have a canonical order is
+		// consumer-domain knowledge (e.g. numerator/denominator, startDate/endDate),
+		// so no universal default exists.
+		defaultOptions: [{ groups: [] }],
 	},
 	createOnce(context) {
 		const option = firstOptionRecord(context.options);
@@ -73,8 +75,7 @@ export const noTransposedFieldReadsRule = defineRule({
 		const rawGroups = Array.isArray(option.groups)
 			? (option.groups as ReadonlyArray<readonly string[]>)
 			: undefined;
-		const defaultGroups = [["numerator", "denominator"]] as const;
-		const groups = (rawGroups ?? defaultGroups).map((fields) => ({
+		const groups = (rawGroups ?? []).map((fields) => ({
 			order: new Map(fields.map((field, index) => [field, index] as const)),
 			label: fields.join(" → "),
 		}));
