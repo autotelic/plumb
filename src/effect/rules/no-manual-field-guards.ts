@@ -44,13 +44,13 @@ function isOptionIsCall(node: ESTree.CallExpression): boolean {
 }
 
 /** Whether this node sits inside a `Schema.makeFilter` predicate, where ad-hoc checks are the point. */
-function insideMakeFilter(node: ESTree.Node): boolean {
-	let current: ESTree.Node | undefined | null = node.parent;
-	while (current !== undefined && current !== null && current.type !== "Program") {
+function insideMakeFilter(node: ESTree.Node, ancestors: ReadonlyArray<ESTree.Node>): boolean {
+	for (let index = ancestors.length - 1; index >= 0; index--) {
+		const current = ancestors[index]!;
+		if (current.type === "Program") break;
 		if (current.type === "CallExpression" && calleeName(current) === "makeFilter") {
 			return true;
 		}
-		current = current.parent;
 	}
 	return false;
 }
@@ -79,7 +79,7 @@ export const noManualFieldGuardsRule = defineRule({
 		const pending: Array<{ node: ESTree.Node; messageId: "regexTest" | "optionGuard" }> = [];
 		const optionVars = new Set<string>();
 		const queue = (node: ESTree.Node, messageId: "regexTest" | "optionGuard"): void => {
-			if (insideMakeFilter(node)) return;
+			if (insideMakeFilter(node, context.sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>)) return;
 			pending.push({ node, messageId });
 		};
 		return {

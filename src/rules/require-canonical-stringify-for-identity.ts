@@ -46,7 +46,8 @@ export const requireCanonicalStringifyForIdentityRule = defineRule({
 		return {
 			CallExpression(node) {
 				if (!isJsonStringify(node)) return;
-				const parent = node.parent;
+				// getAncestors returns an internal Node type; recover the ESTree union for narrowing.
+				const parent = (context.sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>).at(-1);
 				if (parent === null || parent === undefined) return;
 
 				if (parent.type === "BinaryExpression" && COMPARISON_OPERATORS.has(parent.operator)) {

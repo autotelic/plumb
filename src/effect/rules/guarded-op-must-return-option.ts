@@ -82,8 +82,9 @@ export const guardedOpMustReturnOptionRule = defineRule({
 			},
 			Identifier(node) {
 				if (node.name !== "getOrThrow") return;
-				const parent = node.parent;
-				if (parent !== null && parent.type === "MemberExpression" && parent.property === node) return;
+				// getAncestors returns an internal Node type; recover the ESTree union for narrowing.
+				const parent = (context.sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>).at(-1);
+				if (parent?.type === "MemberExpression" && parent.property === node) return;
 				context.report({ node, messageId: "optionEscape" });
 			},
 		};

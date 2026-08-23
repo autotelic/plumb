@@ -38,7 +38,9 @@ export const noConditionalEmptyObjectSpreadRule = defineRule({
   createOnce(context) {
     return {
       SpreadElement(node) {
-        if (node.parent.type !== "ObjectExpression") return;
+        // getAncestors returns an internal Node type; recover the ESTree union for narrowing.
+        const parent = (context.sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>).at(-1);
+        if (parent?.type !== "ObjectExpression") return;
 
         if (isConditionalEmptyObjectSpread(node.argument)) {
           context.report({ node, messageId: "avoid" });

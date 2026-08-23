@@ -71,8 +71,10 @@ export const preferDieForPreconditionDefectsRule = defineRule({
 	},
 	createOnce(context) {
 		const check = (node: ESTree.ThrowStatement): void => {
-			let current: ESTree.Node | undefined = node.parent;
-			while (current !== undefined && current !== null && current.type !== "Program") {
+			const ancestors = context.sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>;
+			for (let index = ancestors.length - 1; index >= 0; index--) {
+				const current = ancestors[index]!;
+				if (current.type === "Program") break;
 				if (
 					current.type === "FunctionDeclaration" ||
 					current.type === "FunctionExpression" ||
@@ -81,7 +83,6 @@ export const preferDieForPreconditionDefectsRule = defineRule({
 					if (returnsEffectOrFailChannel(current)) context.report({ node, messageId: "bareThrow" });
 					return;
 				}
-				current = current.parent;
 			}
 		};
 		return { 		before() {

@@ -35,8 +35,10 @@ export const preferEffectGenForGuardLaddersRule = defineRule({
 		const counts = new Map<ESTree.Node, number>();
 		const reported = new Set<ESTree.Node>();
 		const enclosingFunction = (node: ESTree.Node): ESTree.Node | undefined => {
-			let current: ESTree.Node | null | undefined = node.parent;
-			while (current !== undefined && current !== null && current.type !== "Program") {
+			const ancestors = context.sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>;
+			for (let index = ancestors.length - 1; index >= 0; index--) {
+				const current = ancestors[index]!;
+				if (current.type === "Program") break;
 				if (
 					current.type === "FunctionDeclaration" ||
 					current.type === "FunctionExpression" ||
@@ -44,7 +46,6 @@ export const preferEffectGenForGuardLaddersRule = defineRule({
 				) {
 					return current;
 				}
-				current = current.parent;
 			}
 			return undefined;
 		};
