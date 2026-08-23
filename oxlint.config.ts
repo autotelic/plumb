@@ -70,15 +70,14 @@ export default defineConfig({
       ],
       rules: {
         // plumb:allow-off — typed bridge over raw payloads; casts JSDoc-documented
-        "plumb/no-reinterpret-cast": "off",
-        "plumb/no-runtime-typeof": "off",
-        "plumb/no-object-parameters": "off",
-        "plumb/no-unsafe-dictionary-type": "off",
-        "plumb/no-unknown-parameters": "off",
-        // Bridge modules cross raw AST payloads into typed logic; their casts
-        // are documented via JSDoc SAFETY notes at each site.
-        "plumb/no-chained-type-assertions": "off",
-        "plumb/require-safety-comment-for-type-assertion": "off",
+        "plumb/no-reinterpret-cast": "off", // plumb:allow-off typed bridge over raw payloads
+        "plumb/no-runtime-typeof": "off", // plumb:allow-off decode boundary for config JSON
+        "plumb/no-object-parameters": "off", // plumb:allow-off structural reader takes broad node objects
+        "plumb/no-unsafe-dictionary-type": "off", // plumb:allow-off record values are the raw payload domain
+        "plumb/no-unknown-parameters": "off", // plumb:allow-off reflection input is unknown by definition
+        // plumb:allow-off — bridge-module casts carry JSDoc SAFETY notes
+        "plumb/no-chained-type-assertions": "off", // plumb:allow-off bridge casts documented in JSDoc
+        "plumb/require-safety-comment-for-type-assertion": "off", // plumb:allow-off bridge casts documented in JSDoc
       },
     },
     {
@@ -86,8 +85,8 @@ export default defineConfig({
       // are confined to these files and covered by the suites themselves.
       files: ["src/**/*.test.ts"],
       rules: {
-        "plumb/no-chained-type-assertions": "off",
-        "plumb/require-safety-comment-for-type-assertion": "off",
+        "plumb/no-chained-type-assertions": "off", // plumb:allow-off bridge casts documented in JSDoc
+        "plumb/require-safety-comment-for-type-assertion": "off", // plumb:allow-off bridge casts documented in JSDoc
       },
     },
     {
@@ -103,7 +102,7 @@ export default defineConfig({
       // at the plugin boundary; assertions are confined to these files.
       files: ["src/**/*.test.ts"],
       rules: {
-        "plumb/no-reinterpret-cast": "off",
+        "plumb/no-reinterpret-cast": "off", // plumb:allow-off typed bridge over raw payloads
         "plumb-meta/require-rule-tester": "error",
       },
     },

@@ -6,20 +6,27 @@ import { cast } from "../shared/structural.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
 
+/** Structural view of a function-like visitor node. */
+interface FunctionLike {
+	readonly params: ReadonlyArray<ESTree.ParamPattern>;
+}
+
+/** Discriminant reader for engine nodes the typings leave loose. */
+function typeOf(node: object): string {
+	return cast<{ readonly type: string }>(node).type;
+}
+
 /** Unwrap TypeScript parameter-property wrappers to the annotated pattern. */
 function annotatedPattern(parameter: ESTree.ParamPattern): ESTree.ParamPattern {
-	return parameter.type === "TSParameterProperty" ? parameter.parameter : parameter;
+	return typeOf(parameter) === "TSParameterProperty"
+		? cast<{ readonly parameter: ESTree.ParamPattern }>(parameter).parameter
+		: parameter;
 }
 
 function isOptional(parameter: ESTree.ParamPattern): boolean {
-	// SAFETY: optionality is a grammar-level field on every ParamPattern shape.
-	return cast<{ optional?: boolean }>(annotatedPattern(parameter)).optional === true;
+	// Grammar-level optionality flag, present on every concrete ParamPattern shape.
+	return cast<{ readonly optional?: boolean }>(annotatedPattern(parameter)).optional === true;
 }
-
-type FunctionNode =
-	| ESTree.ArrowFunctionExpression
-	| ESTree.FunctionDeclaration
-	| ESTree.FunctionExpression;
 
 /** Optional parameters hide undefined from the signature; require the union spelled out. */
 export const noOptionalFunctionParametersRule = defineRule({
@@ -31,23 +38,20 @@ export const noOptionalFunctionParametersRule = defineRule({
 		},
 		messages: {
 			optionalParameter:
-				"Parameter `{{parameter}}` is optional. Spell the absence out: annotate it `T | undefined` so every caller sees undefined in the type.",
+				"Optional parameters hide `undefined` from callers. Annotate the parameter as `T | undefined` so the possibility is spelled out in the type.",
 		},
 	},
 	createOnce(context) {
-		const check = (node: FunctionNode): void => {
-			for (const parameter of node.params) {
+		const check = (node: ESTree.Node): void => {
+			for (const parameter of cast<FunctionLike>(node).params) {
 				if (!isOptional(parameter)) continue;
-				context.report({
-					node: parameter,
-					messageId: "optionalParameter",
-				});
+				context.report({ node: parameter, messageId: "optionalParameter" });
 			}
 		};
 		return {
-		before() {
-			if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
-		},
+			before() {
+				if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
+			},
 			FunctionDeclaration: check,
 			FunctionExpression: check,
 			ArrowFunctionExpression: check,

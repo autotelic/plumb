@@ -2,7 +2,7 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree, SourceCode } from "@oxlint/plugins";
 
-import { readField } from "../shared/structural.ts";
+import { cast, readField } from "../shared/structural.ts";
 
 import { ancestorsOf } from "../shared/ancestors.ts";
 
@@ -28,10 +28,15 @@ interface Options {
 	readonly exemptRouteBasenames?: ReadonlyArray<string>;
 }
 
-type FunctionNode =
-	| ESTree.ArrowFunctionExpression
-	| ESTree.FunctionDeclaration
-	| ESTree.FunctionExpression;
+/** Structural view of a function-like visitor node. */
+interface FunctionLike {
+	readonly params: ReadonlyArray<ESTree.ParamPattern>;
+}
+
+/** Discriminant reader for engine nodes the typings leave loose. */
+function typeOf(node: object): string {
+	return cast<{ readonly type: string }>(node).type;
+}
 
 function basename(filename: string): string {
 	const normalized = filename.replaceAll("\\", "/");
@@ -39,25 +44,27 @@ function basename(filename: string): string {
 	return segments[segments.length - 1] ?? normalized;
 }
 
-function parentOf(sourceCode: SourceCode, node: ESTree.Node): ESTree.Node | null {
+function parentOf(sourceCode: SourceCode, node: ESTree.Node): object | null {
 	return ancestorsOf(sourceCode, node)[0] ?? null;
 }
 
 /** Functions the module owns: declarations and named bindings, not callbacks. */
-function isOwnedFunction(sourceCode: SourceCode, node: FunctionNode): boolean {
-	if (node.type === "FunctionDeclaration") return true;
+function isOwnedFunction(sourceCode: SourceCode, node: ESTree.Node): boolean {
+	if (typeOf(node) === "FunctionDeclaration") return true;
 	const parent = parentOf(sourceCode, node);
+	if (parent === null) return false;
+	const parentType = typeOf(parent);
 	if (
-		parent?.type === "CallExpression" ||
-		parent?.type === "NewExpression" ||
-		parent?.type === "JSXExpressionContainer"
+		parentType === "CallExpression" ||
+		parentType === "NewExpression" ||
+		parentType === "JSXExpressionContainer"
 	) {
 		return false;
 	}
 	return (
-		parent?.type === "VariableDeclarator" ||
-		parent?.type === "AssignmentExpression" ||
-		parent?.type === "ExportDefaultDeclaration"
+		parentType === "VariableDeclarator" ||
+		parentType === "AssignmentExpression" ||
+		parentType === "ExportDefaultDeclaration"
 	);
 }
 
@@ -71,25 +78,27 @@ function isExemptRouteHandler(
 	options: ResolvedOptions,
 	filename: string,
 	sourceCode: SourceCode,
-	node: FunctionNode,
+	node: ESTree.Node,
 ): boolean {
-	if (node.type !== "FunctionDeclaration") return false;
-	const name = node.id?.name;
+	if (typeOf(node) !== "FunctionDeclaration") return false;
+	const name = cast<{ readonly id?: { readonly name: string } | null }>(node).id?.name;
 	if (name === undefined || !options.methodNames.has(name)) return false;
 	if (!options.routeBasenames.has(basename(filename))) return false;
-	return parentOf(sourceCode, node)?.type === "ExportNamedDeclaration";
+	const parent = parentOf(sourceCode, node);
+	return parent !== null && typeOf(parent) === "ExportNamedDeclaration";
 }
 
-function displayName(sourceCode: SourceCode, node: FunctionNode): string {
-	if (node.type !== "ArrowFunctionExpression" && node.id !== null) {
-		return node.id.name;
-	}
+function displayName(sourceCode: SourceCode, node: ESTree.Node): string {
+	const declared = cast<{ readonly id?: { readonly name: string } | null }>(node).id;
+	if (declared != null) return declared.name;
 	const parent = parentOf(sourceCode, node);
-	if (parent?.type === "VariableDeclarator" && parent.id.type === "Identifier") {
-		return parent.id.name;
+	if (parent !== null && typeOf(parent) === "VariableDeclarator") {
+		const id = cast<{ readonly id?: { readonly name?: string } }>(parent).id;
+		if (id?.name !== undefined) return id.name;
 	}
-	if (parent?.type === "AssignmentExpression" && parent.left.type === "Identifier") {
-		return parent.left.name;
+	if (parent !== null && typeOf(parent) === "AssignmentExpression") {
+		const left = cast<{ readonly left?: { readonly name?: string } }>(parent).left;
+		if (left?.name !== undefined) return left.name;
 	}
 	return "(anonymous)";
 }
@@ -111,11 +120,14 @@ export const noMultipleFunctionParamsRule = defineRule({
 		const rawOptions = readField<ReadonlyArray<Options>>(context, "options");
 		const options: ResolvedOptions = {
 			methodNames: new Set(rawOptions?.[0]?.exemptFunctionNames ?? HTTP_METHOD_NAMES),
-			routeBasenames: new Set(rawOptions?.[0]?.exemptRouteBasenames ?? DEFAULT_ROUTE_BASENAMES),
+			routeBasenames: new Set(
+				rawOptions?.[0]?.exemptRouteBasenames ?? DEFAULT_ROUTE_BASENAMES,
+			),
 		};
 		const filename = context.filename;
-		const check = (node: FunctionNode): void => {
-			if (node.params.length <= DEFAULT_MAX_PARAMS) return;
+		const check = (node: ESTree.Node): void => {
+			const fn = cast<FunctionLike>(node);
+			if (fn.params.length <= DEFAULT_MAX_PARAMS) return;
 			if (!isOwnedFunction(context.sourceCode, node)) return;
 			if (isExemptRouteHandler(options, filename, context.sourceCode, node)) return;
 			context.report({
@@ -123,14 +135,14 @@ export const noMultipleFunctionParamsRule = defineRule({
 				messageId: "multipleParams",
 				data: {
 					name: displayName(context.sourceCode, node),
-					count: String(node.params.length),
+					count: String(fn.params.length),
 				},
 			});
 		};
 		return {
-		before() {
-			if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
-		},
+			before() {
+				if (TEST_FILE.test(filename.replaceAll("\\", "/"))) return false;
+			},
 			FunctionDeclaration: check,
 			FunctionExpression: check,
 			ArrowFunctionExpression: check,

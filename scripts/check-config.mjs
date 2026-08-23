@@ -12,7 +12,7 @@
  * Severity policy: everything "error" by default. A warn/off entry is allowed
  * only with a trailing marker:  // plumb:allow-warn <reason>
  */
-import { access, readFile } from "node:fs/promises";
+import { access, readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -49,6 +49,30 @@ for (const [plugin, names] of shipped) {
 	for (const name of names) {
 		if (owner.has(name)) fail(`rule "${name}" registered in both ${owner.get(name)} and ${plugin}`);
 		else owner.set(name, plugin);
+	}
+}
+
+// --- orphan rule files: exist on disk but never registered -----------------
+const entryFiles = {
+	plumb: join(root, "src/index.ts"),
+	"plumb-meta": join(root, "src/meta/index.ts"),
+	"plumb-effect": join(root, "src/effect/index.ts"),
+};
+const ruleDirs = [
+	[join(root, "src/rules"), "plumb"],
+	[join(root, "src/effect/rules"), "plumb-effect"],
+	[join(root, "src/meta/rules"), "plumb-meta"],
+];
+for (const [dir, plugin] of ruleDirs) {
+	const entryText = await readFile(entryFiles[plugin], "utf8");
+	for (const name of await readdir(dir)) {
+		if (!name.endsWith(".ts") || name.endsWith(".test.ts") || name === "index.ts") continue;
+		const key = name.replace(/\.ts$/, "");
+		const fileText = await readFile(join(dir, name), "utf8");
+		if (!fileText.includes("defineRule(")) continue;
+		if (!entryText.includes(`"${key}":`)) {
+			fail(`orphan rule file: ${plugin}/rules/${name} is not registered in the ${plugin} index (silently dead code)`);
+		}
 	}
 }
 

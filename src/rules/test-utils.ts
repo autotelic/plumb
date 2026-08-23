@@ -8,7 +8,7 @@ import type { ESTree, Rule } from "@oxlint/plugins";
 type Recorded = { messageId: string };
 
 /** Wrap a raw createOnce rule in the compat layer so it can run anywhere. */
-export function wrap(name: string, rule: Rule): Rule {
+export function wrap(name: string, rule: unknown): Rule {
 	const plugin = eslintCompatPlugin({ meta: { name: "plumb-test" }, rules: { [name]: rule as unknown as Rule } });
 	return plugin.rules[name] as unknown as Rule;
 }
