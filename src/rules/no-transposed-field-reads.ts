@@ -15,19 +15,17 @@ interface FieldPluck {
 	readonly position: number;
 }
 
-function unwrapParentheses(expression: ESTree.Expression): ESTree.Expression {
-	let current = expression;
-	while (current.type === "ParenthesizedExpression") current = current.expression;
-	return current;
-}
-
-/** The `base.field` pluck of a direct member read, or null for anything more elaborate. */
+/** The `base.field` pluck of a direct member read, or null for anything more elaborate.
+ * @param {ESTree.Expression | null | undefined} expression - Argument or spread expression to inspect.
+ * @param {(node: ESTree.Node) => string} getText - Source text accessor from the lint context.
+ * @returns {{ baseText: string; field: string }} Base text and field name, or null when not a simple pluck. */
 function directPluck(
 	expression: ESTree.Expression | null | undefined,
 	getText: (node: ESTree.Node) => string,
 ): { baseText: string; field: string } | null {
 	if (expression === undefined || expression === null) return null;
-	const member = unwrapParentheses(expression);
+	let member = expression;
+	while (member.type === "ParenthesizedExpression") member = member.expression;
 	if (member.type !== "MemberExpression" || member.computed || member.property.type !== "Identifier") {
 		return null;
 	}
@@ -72,7 +70,9 @@ export const noTransposedFieldReadsRule = defineRule({
 	createOnce(context) {
 		const option = firstOptionRecord(context.options);
 		// SAFETY: config JSON shape for this option is validated by meta.schema above.
+		// SAFETY: config JSON shape validated by meta.schema; groups is a tuple array.
 		const rawGroups = Array.isArray(option.groups)
+			// SAFETY: groups is validated as a tuple array by meta.schema.
 			? (option.groups as ReadonlyArray<readonly string[]>)
 			: undefined;
 		const groups = (rawGroups ?? []).map((fields) => ({
@@ -116,7 +116,9 @@ export const noTransposedFieldReadsRule = defineRule({
 
 		return {
 			CallExpression(node) {
-				checkSequence(node, node.arguments.map((argument) => ({ expression: argument as ESTree.Expression })));
+				// SAFETY: SpreadElement arguments are skipped by checkSequence internally.
+			// SAFETY: SpreadElement arguments are excluded by the type check above.
+		checkSequence(node, node.arguments.map((argument) => ({ expression: argument as ESTree.Expression })));
 			},
 			ObjectExpression(node) {
 				checkSequence(
