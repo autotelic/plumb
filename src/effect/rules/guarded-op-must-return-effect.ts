@@ -113,6 +113,7 @@ export const guardedOpMustReturnEffectRule = defineRule({
 				if (enclosingFunctionName(context.sourceCode, node)?.endsWith("Option")) return;
 				const argument = node.argument;
 				if (argument === null || argument === undefined || argument.type !== "CallExpression") return;
+				// SAFETY: argument.type === "CallExpression" was checked above; paren unwrapping preserves the node kind.
 				const call = unwrapParentheses(argument) as ESTree.CallExpression;
 				if (
 					call.callee.type === "MemberExpression" &&
@@ -169,6 +170,7 @@ function findOptionType(type: ESTree.TSType): string | null {
 		case "TSTupleType":
 			for (const element of type.elementTypes) {
 				// Named tuple members (e.g. `amount: T`) expose the payload as elementType.
+				// SAFETY: TSTupleElement is either a named member carrying elementType or a bare TSType.
 				const payload =
 					(element as { elementType?: ESTree.TSType }).elementType ?? (element as ESTree.TSType);
 				const found = findOptionType(payload);

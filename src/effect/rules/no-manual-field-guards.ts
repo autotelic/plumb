@@ -110,6 +110,7 @@ export const noManualFieldGuardsRule = defineRule({
 			},
 			IfStatement(node) {
 				if (!isOptionGuardBinary(node.test)) return;
+				// SAFETY: isOptionGuardBinary matched only BinaryExpression tests.
 				const binaryTest = node.test as ESTree.BinaryExpression;
 				const sides = [binaryTest.left, binaryTest.right];
 				const tagMember = sides.find(

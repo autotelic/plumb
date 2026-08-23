@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { readField } from "../../shared/structural.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
 
@@ -21,7 +22,7 @@ function childNodes(node: ESTree.Node): Array<ESTree.Node> {
 	const children: Array<ESTree.Node> = [];
 	for (const key of Object.keys(node)) {
 		if (key === "parent" || key === "loc" || key === "range") continue;
-		const value = (node as unknown as Record<string, unknown>)[key];
+		const value = readField(node, key);
 		const candidates = Array.isArray(value) ? value : [value];
 		for (const candidate of candidates) {
 			if (

@@ -3,6 +3,7 @@ import { defineRule } from "@oxlint/plugins";
 import type { ESTree, SourceCode } from "@oxlint/plugins";
 
 import { ancestorsOf } from "../../shared/ancestors.ts";
+import { readField } from "../../shared/structural.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
 
@@ -57,7 +58,7 @@ function annotationText(type: ESTree.TSType): string {
 					: name.type === "TSQualifiedName"
 						? name.right.name
 						: "";
-			const args = (type as { typeArguments?: { params?: Array<ESTree.TSType> } }).typeArguments;
+			const args = readField<{ params?: Array<ESTree.TSType> }>(type, "typeArguments");
 			const renderedArgs = args?.params?.map(annotationText).join(" ") ?? "";
 			return `${head} ${renderedArgs}`;
 		}

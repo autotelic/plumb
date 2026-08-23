@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { readField } from "../../shared/structural.ts";
 
 const PREDICATE_NAME = /^is[A-Z]/u;
 
@@ -34,7 +35,7 @@ function chainLeaf(expression: ESTree.Expression): boolean {
 	if (expression.type === "LogicalExpression") {
 		return chainLeaf(expression.left) && chainLeaf(expression.right);
 	}
-	if ((expression as { type?: string }).type === "ParenthesizedExpression") {
+	if (readField<string>(expression, "type") === "ParenthesizedExpression") {
 		return chainLeaf((expression as unknown as { expression: ESTree.Expression }).expression);
 	}
 	return isDomainPredicateCall(expression);
@@ -44,7 +45,7 @@ function childNodes(node: ESTree.Node): Array<ESTree.Node> {
 	const children: Array<ESTree.Node> = [];
 	for (const key of Object.keys(node)) {
 		if (key === "parent" || key === "loc" || key === "range") continue;
-		const value = (node as unknown as Record<string, unknown>)[key];
+		const value = readField(node, key);
 		const candidates = Array.isArray(value) ? value : [value];
 		for (const candidate of candidates) {
 			if (

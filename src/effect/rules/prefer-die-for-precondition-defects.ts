@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { readField } from "../../shared/structural.ts";
 import { ancestorsOf } from "../../shared/ancestors.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
@@ -27,7 +28,7 @@ function returnsEffectOrFailChannel(node: ESTree.Node): boolean {
 				if (head === "Effect" || head === "Either") {
 					return true;
 				}
-				const args = (type as { typeArguments?: { params?: Array<ESTree.TSType> } }).typeArguments;
+				const args = readField<{ params?: Array<ESTree.TSType> }>(type, "typeArguments");
 				if (args?.params !== undefined) seen.push(...args.params);
 				break;
 			}

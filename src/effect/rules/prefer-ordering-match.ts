@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { readField } from "../../shared/structural.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
 
@@ -8,8 +9,8 @@ const ORDERING_OPERATORS = new Set(["<", ">", "<=", ">=", "===", "=="]);
 
 function unwrapParentheses(expression: ESTree.Expression): ESTree.Expression {
 	let current = expression;
-	while ((current as unknown as { type?: string }).type === "ParenthesizedExpression") {
-		current = (current as unknown as { expression: ESTree.Expression }).expression;
+	while (readField<string>(current, "type") === "ParenthesizedExpression") {
+		current = readField<ESTree.Expression>(current, "expression")!;
 	}
 	return current;
 }
