@@ -13,8 +13,8 @@ export interface OptionRecord {
 /**
  * Read the first options entry as an object record.
  *
- * @param options - The raw `context.options` array.
- * @returns The first entry as a record, or an empty record when absent.
+ * @param {readonly unknown[] | undefined} options - The raw `context.options` array.
+ * @returns {OptionRecord} The first entry as a record, or an empty record when absent.
  */
 export function firstOptionRecord(options: readonly unknown[] | undefined): OptionRecord {
 	const first = options?.[0];
