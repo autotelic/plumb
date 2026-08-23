@@ -7,20 +7,25 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./effect": "./src/effect/index.ts"
+    "./effect": "./src/effect/index.ts",
+    "./meta": "./src/meta/index.ts"
   },
   "scripts": {
-    "check": "pnpm lint && pnpm typecheck",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm check:rule-tests",
     "lint": "oxlint src",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check:rule-tests": "node scripts/check-rule-tests.mjs"
   },
   "dependencies": {
     "@oxlint/plugins": "1.78.0"
   },
   "devDependencies": {
     "@types/node": "24.13.3",
+    "fast-check": "^4.9.0",
     "oxlint": "1.79.0",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "^4.1.11"
   },
   "engines": {
     "node": ">=20"

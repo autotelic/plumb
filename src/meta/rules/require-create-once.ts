@@ -1,0 +1,43 @@
+import { defineRule } from "@oxlint/plugins";
+
+import type { ESTree } from "@oxlint/plugins";
+
+function propertyName(key: ESTree.ObjectProperty): string | null {
+	if (key.computed) return null;
+	if (key.key.type === "Identifier") return key.key.name;
+	if (key.key.type === "Literal" && typeof key.key.value === "string") return key.key.value;
+	return null;
+}
+
+/** Rule objects should opt into Oxlint's performant createOnce API, not ESLint's per-file create. */
+export const requireCreateOnceRule = defineRule({
+	meta: {
+		type: "suggestion",
+		docs: {
+			description: "Require `createOnce` instead of `create` when authoring Oxlint rules.",
+		},
+		messages: {
+			useCreateOnce:
+			"`create` re-runs per file and blocks Oxlint's Rust-side traversal optimizations. Use `createOnce` (per-file setup belongs in the `before` hook).",
+		},
+		},
+	createOnce(context) {
+		const visitObject = (node: ESTree.ObjectExpression): void => {
+			const keys = new Set<string>();
+			let createProperty: ESTree.ObjectProperty | null = null;
+			for (const property of node.properties) {
+				if (property.type !== "Property") continue;
+				const name = propertyName(property);
+				if (name === null) continue;
+				keys.add(name);
+				if (name === "create") createProperty = property;
+			}
+			if (createProperty !== null && keys.has("meta")) {
+				context.report({ node: createProperty, messageId: "useCreateOnce" });
+			}
+		};
+		return {
+			ObjectExpression: visitObject,
+		};
+	},
+});
