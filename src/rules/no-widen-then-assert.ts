@@ -1,5 +1,5 @@
 import { defineRule } from "@oxlint/plugins";
-import type { ESTree, Variable } from "@oxlint/plugins";
+import type { ESTree, SourceCode, Variable } from "@oxlint/plugins";
 
 type BroadTypeKind = "top" | "object" | "record";
 
@@ -159,11 +159,16 @@ function isDefinitelyNarrowerRecordType(type: ESTree.TSType): boolean {
   );
 }
 
-function functionBoundary(node: ESTree.Node): ESTree.Node | null {
-  let current = node.parent;
-  while (current !== null && current.type !== "Program") {
+function ancestorsOf(sourceCode: SourceCode, node: ESTree.Node): ReadonlyArray<ESTree.Node> {
+  return sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>;
+}
+
+function functionBoundary(sourceCode: SourceCode, node: ESTree.Node): ESTree.Node | null {
+  const ancestors = ancestorsOf(sourceCode, node);
+  for (let index = ancestors.length - 1; index >= 0; index--) {
+    const current = ancestors[index]!;
+    if (current.type === "Program") break;
     if (functionBoundaryTypes.has(current.type)) return current;
-    current = current.parent;
   }
   return null;
 }
@@ -198,6 +203,7 @@ function variableDeclarator(variable: Variable): ESTree.VariableDeclarator | nul
 }
 
 function knownValueEvidence(
+  sourceCode: SourceCode,
   expression: ESTree.Expression,
   scopes: Parameters<typeof resolvedVariableForIdentifier>[0],
   boundary: ESTree.Node | null,
@@ -234,25 +240,28 @@ function knownValueEvidence(
   );
   const annotation = annotatedIdentifier?.typeAnnotation?.typeAnnotation;
   if (annotation !== undefined && annotatedIdentifier !== undefined) {
-    if (functionBoundary(annotatedIdentifier) !== boundary || broadTypeKind(annotation) !== null) {
+    if (functionBoundary(sourceCode, annotatedIdentifier) !== boundary || broadTypeKind(annotation) !== null) {
       return null;
     }
     return { type: annotation };
   }
 
   const declarator = variableDeclarator(variable);
+  const declaration = declarator === null ? null : ancestorsOf(sourceCode, declarator).at(-1);
   if (
     declarator === null ||
-    declarator.parent.type !== "VariableDeclaration" ||
-    declarator.parent.kind !== "const" ||
+    declaration === null ||
+    declaration?.type !== "VariableDeclaration" ||
+    declaration?.kind !== "const" ||
     declarator.init === null ||
     variable.references.some((reference) => reference.isWrite() && !reference.init) ||
-    functionBoundary(declarator) !== boundary
+    functionBoundary(sourceCode, declarator) !== boundary
   ) {
     return null;
   }
 
   return knownValueEvidence(
+    sourceCode,
     declarator.init,
     scopes,
     boundary,
@@ -261,6 +270,7 @@ function knownValueEvidence(
 }
 
 function widenedBinding(
+  sourceCode: SourceCode,
   variable: Variable,
   scopes: Parameters<typeof resolvedVariableForIdentifier>[0],
 ): {
@@ -270,10 +280,12 @@ function widenedBinding(
   readonly boundary: ESTree.Node | null;
 } | null {
   const declarator = variableDeclarator(variable);
+  const declaration = declarator === null ? null : ancestorsOf(sourceCode, declarator).at(-1);
   if (
     declarator === null ||
-    declarator.parent.type !== "VariableDeclaration" ||
-    declarator.parent.kind !== "const" ||
+    declaration === null ||
+    declaration?.type !== "VariableDeclaration" ||
+    declaration?.kind !== "const" ||
     declarator.id.type !== "Identifier" ||
     declarator.init === null ||
     variable.references.some((reference) => reference.isWrite() && !reference.init)
@@ -281,7 +293,7 @@ function widenedBinding(
     return null;
   }
 
-  const boundary = functionBoundary(declarator);
+  const boundary = functionBoundary(sourceCode, declarator);
   const declaredType = declarator.id.typeAnnotation?.typeAnnotation;
   const initializerAssertion = assertionFromExpression(declarator.init);
   const initializerBroadKind =
@@ -294,7 +306,7 @@ function widenedBinding(
     initializerAssertion !== null && initializerBroadKind !== null
       ? assertedExpression(initializerAssertion)
       : declarator.init;
-  const evidence = knownValueEvidence(originalExpression, scopes, boundary, new Set([variable]));
+  const evidence = knownValueEvidence(sourceCode, originalExpression, scopes, boundary, new Set([variable]));
   return evidence === null ? null : { broadKind, evidence, declaredAt: declarator.end, boundary };
 }
 
@@ -333,11 +345,11 @@ export const noWidenThenAssertRule = defineRule({
 
       const variable = resolvedVariableForIdentifier(scopes, expression);
       if (variable === null) return;
-      const widened = widenedBinding(variable, scopes);
+      const widened = widenedBinding(context.sourceCode, variable, scopes);
       if (
         widened === null ||
         node.start <= widened.declaredAt ||
-        functionBoundary(node) !== widened.boundary ||
+        functionBoundary(context.sourceCode, node) !== widened.boundary ||
         !assertionIsNarrower(
           context.sourceCode.text,
           widened.broadKind,

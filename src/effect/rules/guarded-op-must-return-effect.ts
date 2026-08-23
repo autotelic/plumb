@@ -1,6 +1,6 @@
 import { defineRule } from "@oxlint/plugins";
 
-import type { ESTree } from "@oxlint/plugins";
+import type { ESTree, SourceCode } from "@oxlint/plugins";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
 
@@ -19,10 +19,15 @@ function isOptionObject(node: ESTree.Expression | ESTree.Super): boolean {
 	return false;
 }
 
+function ancestorsOf(sourceCode: SourceCode, node: ESTree.Node): ReadonlyArray<ESTree.Node> {
+	return sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>;
+}
+
 /** The name of the function whose body contains this node, if determinable. */
-function enclosingFunctionName(node: ESTree.Node): string | null {
-	let current: ESTree.Node | null | undefined = node.parent;
-	while (current !== undefined && current !== null) {
+function enclosingFunctionName(sourceCode: SourceCode, node: ESTree.Node): string | null {
+	const chain = ancestorsOf(sourceCode, node);
+	for (let index = chain.length - 1; index >= 0; index--) {
+		const current = chain[index]!;
 		if (current.type === "FunctionDeclaration" && current.id !== null) return current.id.name;
 		if (
 			(current.type === "FunctionExpression" || current.type === "ArrowFunctionExpression") &&
@@ -31,37 +36,37 @@ function enclosingFunctionName(node: ESTree.Node): string | null {
 			const name =
 				current.type === "FunctionExpression" && current.id !== null
 					? current.id.name
-					: variableDeclaratorName(current);
+					: variableDeclaratorName(sourceCode, current);
 			if (name !== null) return name;
 		}
-		current = current.parent;
 	}
 	return null;
 }
 
 /** The declared name of the variable a function expression initialises, if any. */
-function variableDeclaratorName(node: ESTree.Node): string | null {
-	let current: ESTree.Node | null | undefined = node.parent;
-	while (current !== undefined && current !== null && current.type !== "Program") {
+function variableDeclaratorName(sourceCode: SourceCode, node: ESTree.Node): string | null {
+	const chain = ancestorsOf(sourceCode, node);
+	for (let index = chain.length - 1; index >= 0; index--) {
+		const current = chain[index]!;
+		if (current.type === "Program") break;
 		if (current.type === "VariableDeclarator" && current.id.type === "Identifier") return current.id.name;
-		current = current.parent;
 	}
 	return null;
 }
 
-function functionExpressionName(node: ESTree.Node): string | null {
+function functionExpressionName(sourceCode: SourceCode, node: ESTree.Node): string | null {
 	const fn = node as ESTree.Function;
 	if (fn.id?.name) return fn.id.name;
-	return variableDeclaratorName(node);
+	return variableDeclaratorName(sourceCode, node);
 }
 
 /** The doctrine binds public APIs: walk up to see if this node is exported. */
-function hasExportAncestor(node: ESTree.Node): boolean {
-	let current: ESTree.Node | null | undefined = node.parent;
-	while (current !== undefined && current !== null) {
+function hasExportAncestor(sourceCode: SourceCode, node: ESTree.Node): boolean {
+	const chain = ancestorsOf(sourceCode, node);
+	for (let index = chain.length - 1; index >= 0; index--) {
+		const current = chain[index]!;
 		if (current.type === "ExportNamedDeclaration" || current.type === "ExportDefaultDeclaration") return true;
 		if (current.type === "Program") return false;
-		current = current.parent;
 	}
 	return false;
 }
@@ -106,8 +111,8 @@ export const guardedOpMustReturnEffectRule = defineRule({
 			if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
 		},
 			ReturnStatement(node) {
-				if (!hasExportAncestor(node)) return;
-				if (enclosingFunctionName(node)?.endsWith("Option")) return;
+				if (!hasExportAncestor(context.sourceCode, node)) return;
+				if (enclosingFunctionName(context.sourceCode, node)?.endsWith("Option")) return;
 				const argument = node.argument;
 				if (argument === null || argument === undefined || argument.type !== "CallExpression") return;
 				const call = unwrapParentheses(argument) as ESTree.CallExpression;
@@ -121,8 +126,8 @@ export const guardedOpMustReturnEffectRule = defineRule({
 				}
 			},
 			ArrowFunctionExpression(node) {
-				if (!hasExportAncestor(node)) return;
-				const parentId = variableDeclaratorName(node);
+				if (!hasExportAncestor(context.sourceCode, node)) return;
+				const parentId = variableDeclaratorName(context.sourceCode, node);
 				if (parentId !== null && parentId.endsWith("Option")) return;
 				const annotation = node.returnType?.typeAnnotation;
 				if (annotation === undefined) return;
@@ -132,12 +137,12 @@ export const guardedOpMustReturnEffectRule = defineRule({
 				}
 			},
 			FunctionDeclaration(node) {
-				if (!hasExportAncestor(node)) return;
+				if (!hasExportAncestor(context.sourceCode, node)) return;
 				checkFunctionReturn(context, node, node.id?.name ?? null);
 			},
 			FunctionExpression(node) {
-				if (!hasExportAncestor(node)) return;
-				checkFunctionReturn(context, node, functionExpressionName(node));
+				if (!hasExportAncestor(context.sourceCode, node)) return;
+				checkFunctionReturn(context, node, functionExpressionName(context.sourceCode, node));
 			},
 		};
 	},

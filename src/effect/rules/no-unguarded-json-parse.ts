@@ -23,10 +23,16 @@ function isJsonParseCall(node: ESTree.CallExpression): boolean {
 	);
 }
 
+function ancestorsOf(sourceCode: SourceCode, node: ESTree.Node): ReadonlyArray<ESTree.Node> {
+	return sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>;
+}
+
 /** Whether the nearest annotated function returns through the Effect/Either/Option channel. */
-function insideChannelReturningFunction(node: ESTree.Node): boolean {
-	let current: ESTree.Node | null | undefined = node.parent;
-	while (current !== undefined && current !== null && current.type !== "Program") {
+function insideChannelReturningFunction(sourceCode: SourceCode, node: ESTree.Node): boolean {
+	const chain = ancestorsOf(sourceCode, node);
+	for (let index = chain.length - 1; index >= 0; index--) {
+		const current = chain[index]!;
+		if (current.type === "Program") break;
 		const fn = current as unknown as { returnType?: { typeAnnotation?: ESTree.TSType } };
 		if (
 			(current.type === "FunctionDeclaration" ||
@@ -38,7 +44,6 @@ function insideChannelReturningFunction(node: ESTree.Node): boolean {
 			const text = annotationText(fn.returnType.typeAnnotation);
 			if (/\b(?:Effect|Either|Option)(?:\.|\b)/u.test(text)) return true;
 		}
-		current = current.parent;
 	}
 	return false;
 }
@@ -93,9 +98,12 @@ function isEffectTryCall(node: ESTree.Node): boolean {
  * `Effect.try` call. Crossing a function boundary is allowed only when that
  * function is itself handed straight to `Effect.try`.
  */
-function isGuardedParse(node: ESTree.Node): boolean {
-	let current: ESTree.Node | null | undefined = node.parent;
-	while (current !== undefined && current !== null && current.type !== "Program") {
+function isGuardedParse(sourceCode: SourceCode, node: ESTree.Node): boolean {
+	// Nearest-first chain; probe resumes mid-chain when climbing past pure containers.
+	const chain = ancestorsOf(sourceCode, node);
+	for (let index = 0; index < chain.length; index += 1) {
+		const current = chain[index]!;
+		if (current.type === "Program") return false;
 		if (current.type === "TryStatement") return true;
 		if (isEffectTryCall(current)) return true;
 		if (
@@ -105,30 +113,30 @@ function isGuardedParse(node: ESTree.Node): boolean {
 		) {
 			// A thunk may be handed straight to Effect.try through an object literal
 			// ({ try: () => ..., catch: ... }); climb past pure containers to check.
-			let probe: ESTree.Node | undefined | null = current.parent;
+			let probeIndex = index + 1;
 			while (
-				probe !== undefined &&
-				probe !== null &&
-				(probe.type === "Property" ||
-					probe.type === "ObjectExpression" ||
-					probe.type === "ArrayExpression")
+				probeIndex < chain.length &&
+				(chain[probeIndex]!.type === "Property" ||
+					chain[probeIndex]!.type === "ObjectExpression" ||
+					chain[probeIndex]!.type === "ArrayExpression")
 			) {
-				probe = probe.parent;
+				probeIndex += 1;
 			}
-			if (probe !== undefined && probe !== null && isEffectTryCall(probe)) {
-				current = probe;
+			if (probeIndex < chain.length && isEffectTryCall(chain[probeIndex]!)) {
+				index = probeIndex;
 				continue;
 			}
 			return false;
 		}
-		current = current.parent;
 	}
 	return false;
 }
 
 function hasSafetyComment(sourceCode: SourceCode, node: ESTree.Node): boolean {
-	let current: ESTree.Node | null = node;
-	while (current !== null) {
+	// Walk outward from the assertion itself, stopping before the Program root.
+	const chain: Array<ESTree.Node> = [node, ...[...ancestorsOf(sourceCode, node)].reverse()];
+	for (let index = 0; index < chain.length; index += 1) {
+		const current = chain[index]!;
 		if (
 			sourceCode
 				.getCommentsBefore(current)
@@ -136,8 +144,9 @@ function hasSafetyComment(sourceCode: SourceCode, node: ESTree.Node): boolean {
 		) {
 			return true;
 		}
-		if (commentOwnerKinds.has(current.type) || current.parent === null || current.parent.type === "Program") return false;
-		current = current.parent;
+		if (commentOwnerKinds.has(current.type)) return false;
+		const parent = chain[index + 1];
+		if (parent === undefined || parent.type === "Program") return false;
 	}
 	return false;
 }
@@ -165,8 +174,8 @@ export const noUnguardedJsonParseRule = defineRule({
 		},
 			CallExpression(node) {
 				if (!isJsonParseCall(node)) return;
-				if (!insideChannelReturningFunction(node)) return;
-				if (isGuardedParse(node)) return;
+				if (!insideChannelReturningFunction(context.sourceCode, node)) return;
+				if (isGuardedParse(context.sourceCode, node)) return;
 				if (hasSafetyComment(context.sourceCode, node)) return;
 				context.report({ node, messageId: "unguardedParse" });
 			},
