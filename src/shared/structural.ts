@@ -33,8 +33,8 @@ export function readField<T = NodeFieldValue>(
 	return (node as Record<string, T>)[key];
 }
 
-/** Discriminate string-valued fields of an AST node. */
-export function isString(value: NodeFieldValue): value is string {
+/** Discriminate string-valued fields or expressions of an AST node. */
+export function isString(value: NodeFieldValue | ESTree.Expression): value is string {
 	return typeof value === "string";
 }
 

@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { childNodes } from "../../shared/child-nodes.ts";
 import { readField } from "../../shared/structural.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
@@ -16,25 +17,6 @@ function isFunctionLike(node: MaybeFunction): boolean {
 		node.type === "FunctionExpression" ||
 		node.type === "FunctionDeclaration"
 	);
-}
-
-function childNodes(node: ESTree.Node): Array<ESTree.Node> {
-	const children: Array<ESTree.Node> = [];
-	for (const key of Object.keys(node)) {
-		if (key === "parent" || key === "loc" || key === "range") continue;
-		const value = readField(node, key);
-		const candidates = Array.isArray(value) ? value : [value];
-		for (const candidate of candidates) {
-			if (
-				candidate !== null &&
-				typeof candidate === "object" &&
-				typeof (candidate as ESTree.Node).type === "string"
-			) {
-				children.push(candidate as ESTree.Node);
-			}
-		}
-	}
-	return children;
 }
 
 function isOptionNone(argument: ESTree.Node | null | undefined): boolean {

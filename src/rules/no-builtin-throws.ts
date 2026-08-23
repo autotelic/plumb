@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { firstOptionRecord } from "../shared/rule-options.ts";
 import { isRecordObject, isString } from "../shared/structural.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
@@ -55,12 +56,9 @@ export const noBuiltinThrowsRule = defineRule({
 		defaultOptions: [{ allow: [] }],
 	},
 	createOnce(context) {
-		const option = context.options?.[0];
-		// oxlint-disable-next-line plumb/no-runtime-typeof -- options come from the lint config file; this is the decode boundary
-		const optionIsObject =
-			option !== null && typeof option === "object" && !Array.isArray(option);
+		const option = firstOptionRecord(context.options);
 		const allowed: ReadonlySet<string> = new Set(
-			optionIsObject ? ((option as Options).allow ?? []) : [],
+			Array.isArray(option.allow) ? option.allow.filter(isString) : [],
 		);
 		return {
 		before() {

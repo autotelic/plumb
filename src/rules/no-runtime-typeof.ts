@@ -2,6 +2,8 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree, SourceCode } from "@oxlint/plugins";
 
+import { firstOptionRecord } from "../shared/rule-options.ts";
+
 type RuntimeFunction = ESTree.ArrowFunctionExpression | ESTree.Function;
 
 function isRuntimeFunction(node: ESTree.Node): node is RuntimeFunction {
@@ -50,12 +52,8 @@ export const noRuntimeTypeofRule = defineRule({
 	createOnce(context) {
 		return {
 			UnaryExpression(node) {
-				const option = context.options?.[0];
-				const allowInTypeGuards =
-					typeof option === "object" &&
-					option !== null &&
-					!Array.isArray(option) &&
-					option.allowInTypeGuards === true;
+				const option = firstOptionRecord(context.options);
+				const allowInTypeGuards = option.allowInTypeGuards === true;
 				if (
 					node.operator === "typeof" &&
 					(!allowInTypeGuards || !isInsideTypeGuard(node, context.sourceCode))

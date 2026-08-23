@@ -1,7 +1,8 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
-import { isRecordObject, isString } from "../shared/structural.ts";
+
+import { firstOptionRecord } from "../shared/rule-options.ts";
 
 interface Options {
 	readonly groups?: ReadonlyArray<readonly string[]>;
@@ -67,14 +68,14 @@ export const noTransposedFieldReadsRule = defineRule({
 		defaultOptions: [{ groups: [["numerator", "denominator"]] }],
 	},
 	createOnce(context) {
-		const option = context.options?.[0];
-		// oxlint-disable-next-line plumb/no-runtime-typeof -- options come from the lint config file; this is the decode boundary
-		const optionIsObject =
-			option !== null && typeof option === "object" && !Array.isArray(option);
-		const rawGroups =
-			optionIsObject ? (option as Options).groups : undefined;
-		const groups = (rawGroups ?? [["numerator", "denominator"]]).map((fields) => ({
-			order: new Map(fields.map((field, index) => [field, index])),
+		const option = firstOptionRecord(context.options);
+		// SAFETY: config JSON shape for this option is validated by meta.schema above.
+		const rawGroups = Array.isArray(option.groups)
+			? (option.groups as ReadonlyArray<readonly string[]>)
+			: undefined;
+		const defaultGroups = [["numerator", "denominator"]] as const;
+		const groups = (rawGroups ?? defaultGroups).map((fields) => ({
+			order: new Map(fields.map((field, index) => [field, index] as const)),
 			label: fields.join(" → "),
 		}));
 

@@ -2,15 +2,17 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
 
+import { isString, type NodeFieldValue } from "../../shared/structural.ts";
+
 /**
  * Property-name reader for visitor properties. The `Property` selector receives
  * Object/Binding/AssignmentTarget properties; all share this structural shape.
  */
 function propertyName(node: { readonly computed: boolean; readonly key: unknown }): string | null {
 	if (node.computed) return null;
-	const key = node.key as { type?: string; name?: string; value?: unknown };
-	if (key?.type === "Identifier") return key.name ?? null;
-	if (key?.type === "Literal" && typeof key.value === "string") return key.value;
+	const key = node.key as { type?: string; name?: NodeFieldValue; value?: NodeFieldValue };
+	if (key?.type === "Identifier" && isString(key.name)) return key.name;
+	if (key?.type === "Literal" && isString(key.value)) return key.value;
 	return null;
 }
 

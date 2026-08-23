@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { childNodes } from "../../shared/child-nodes.ts";
 import { readField } from "../../shared/structural.ts";
 
 const PREDICATE_NAME = /^is[A-Z]/u;
@@ -39,25 +40,6 @@ function chainLeaf(expression: ESTree.Expression): boolean {
 		return chainLeaf((expression as unknown as { expression: ESTree.Expression }).expression);
 	}
 	return isDomainPredicateCall(expression);
-}
-
-function childNodes(node: ESTree.Node): Array<ESTree.Node> {
-	const children: Array<ESTree.Node> = [];
-	for (const key of Object.keys(node)) {
-		if (key === "parent" || key === "loc" || key === "range") continue;
-		const value = readField(node, key);
-		const candidates = Array.isArray(value) ? value : [value];
-		for (const candidate of candidates) {
-			if (
-				candidate !== null &&
-				typeof candidate === "object" &&
-				typeof (candidate as ESTree.Node).type === "string"
-			) {
-				children.push(candidate as ESTree.Node);
-			}
-		}
-	}
-	return children;
 }
 
 /** True when the subtree produces an Option.none()/Option.some(...) result. */

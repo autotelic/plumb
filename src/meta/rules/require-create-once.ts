@@ -1,11 +1,13 @@
 import { defineRule } from "@oxlint/plugins";
 
+import { isString } from "../../shared/structural.ts";
+
 import type { ESTree } from "@oxlint/plugins";
 
 function propertyName(key: ESTree.ObjectProperty): string | null {
 	if (key.computed) return null;
 	if (key.key.type === "Identifier") return key.key.name;
-	if (key.key.type === "Literal" && typeof key.key.value === "string") return key.key.value;
+	if (key.key.type === "Literal" && isString(key.key.value)) return key.key.value;
 	return null;
 }
 
