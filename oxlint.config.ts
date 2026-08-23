@@ -2,8 +2,12 @@ import { defineConfig } from "oxlint";
 
 export default defineConfig({
   ignorePatterns: ["node_modules"],
-  jsPlugins: [{ name: "plumb-meta", specifier: "./src/meta/index.ts" }],
+  jsPlugins: [
+    { name: "plumb", specifier: "./src/index.ts" },
+    { name: "plumb-meta", specifier: "./src/meta/index.ts" },
+  ],
   rules: {
+    "plumb/prefer-property-tests": "error",
     "plumb-meta/no-manual-ancestor-walks": "warn",
     "plumb-meta/prefer-before-file-scope": "warn",
     "plumb-meta/require-create-once": "warn",
@@ -21,7 +25,6 @@ export default defineConfig({
     {
       files: ["src/**/*.test.ts"],
       rules: {
-        "plumb-meta/prefer-property-tests": "error",
         "plumb-meta/require-rule-tester": "error",
       },
     },

@@ -1,5 +1,7 @@
 import { eslintCompatPlugin } from "@oxlint/plugins";
 
+import { preferPropertyTestsRule } from "./rules/prefer-property-tests.ts";
+
 import { noChainedTypeAssertionsRule } from "./rules/no-chained-type-assertions.ts";
 import { noConditionalEmptyObjectSpreadRule } from "./rules/no-conditional-empty-object-spread.ts";
 import { noBooleanFieldSignalsRule } from "./rules/no-boolean-field-signals.ts";
@@ -89,6 +91,7 @@ const plumbPlugin = eslintCompatPlugin({
 		"require-canonical-stringify-for-identity": requireCanonicalStringifyForIdentityRule,
 		"no-redundant-derived-field": noRedundantDerivedFieldRule,
 		"require-exhaustive-tag-switch": requireExhaustiveTagSwitchRule,
+		"prefer-property-tests": preferPropertyTestsRule,
 	},
 });
 

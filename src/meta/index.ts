@@ -2,7 +2,6 @@ import { eslintCompatPlugin } from "@oxlint/plugins";
 
 import { noManualAncestorWalksRule } from "./rules/no-manual-ancestor-walks.ts";
 import { preferBeforeFileScopeRule } from "./rules/prefer-before-file-scope.ts";
-import { preferPropertyTestsRule } from "./rules/prefer-property-tests.ts";
 import { requireCreateOnceRule } from "./rules/require-create-once.ts";
 import { requireRuleTesterRule } from "./rules/require-rule-tester.ts";
 
@@ -16,7 +15,6 @@ const plumbMetaPlugin = eslintCompatPlugin({
 	rules: {
 		"no-manual-ancestor-walks": noManualAncestorWalksRule,
 		"prefer-before-file-scope": preferBeforeFileScopeRule,
-		"prefer-property-tests": preferPropertyTestsRule,
 		"require-create-once": requireCreateOnceRule,
 		"require-rule-tester": requireRuleTesterRule,
 	},
