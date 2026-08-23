@@ -11,11 +11,12 @@
     "./meta": "./src/meta/index.ts"
   },
   "scripts": {
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm check:rule-tests",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm check:rule-tests && pnpm check:config",
     "lint": "oxlint src",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "check:rule-tests": "node scripts/check-rule-tests.mjs"
+    "check:rule-tests": "node scripts/check-rule-tests.mjs",
+    "check:config": "node scripts/check-config.mjs"
   },
   "dependencies": {
     "@oxlint/plugins": "1.78.0"
