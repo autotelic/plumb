@@ -9,6 +9,9 @@ import { readField } from "./structural.ts";
  * SAFETY: node fields are owned by the AST grammar (see NodeFieldValue); the
  * object/array discrimination here is the field-to-child boundary. Prefer
  * declared visitors; use this only for custom descent orders.
+ *
+ * @param {ESTree.Node} node - The parent AST node.
+ * @returns {Array<ESTree.Node>} Direct child nodes, in field order.
  */
 export function childNodes(node: ESTree.Node): Array<ESTree.Node> {
 	const children: Array<ESTree.Node> = [];
