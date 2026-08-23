@@ -9,6 +9,7 @@ import { noImpossibleBranchThrowRule } from "./rules/no-impossible-branch-throw.
 import { noKnownValueWideningRule } from "./rules/no-known-value-widening.ts";
 import { noModuleMockingRule } from "./rules/no-module-mocking.ts";
 import { noObjectParametersRule } from "./rules/no-object-parameters.ts";
+import { noReinterpretCastRule } from "./rules/no-reinterpret-cast.ts";
 import { preferPayloadBrandRule } from "./rules/prefer-payload-brand.ts";
 import { noProductOfStateBooleansRule } from "./rules/no-product-of-state-booleans.ts";
 import { noReflectApplyRule } from "./rules/no-reflect-apply.ts";
@@ -56,6 +57,7 @@ const plumbPlugin = eslintCompatPlugin({
 		"no-known-value-widening": noKnownValueWideningRule,
 		"no-module-mocking": noModuleMockingRule,
 		"no-object-parameters": noObjectParametersRule,
+		"no-reinterpret-cast": noReinterpretCastRule,
 		"prefer-payload-brand": preferPayloadBrandRule,
 		"no-product-of-state-booleans": noProductOfStateBooleansRule,
 		"no-reflect-apply": noReflectApplyRule,

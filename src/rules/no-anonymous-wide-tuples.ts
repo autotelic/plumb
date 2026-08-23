@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { cast, readField } from "../shared/structural.ts";
 
 /**
  * Dense representations are sliceable on any axis because their parts are
@@ -23,7 +24,7 @@ export const noAnonymousWideTuplesRule = defineRule({
 	createOnce(context) {
 		return {
 			TSTupleType(node) {
-				const elements = (node as unknown as { elementTypes?: ESTree.TSType[] }).elementTypes ?? [];
+				const elements = readField<ESTree.TSType[]>(node, "elementTypes") ?? [];
 				const count = elements.length;
 				if (count < 3) return;
 				context.report({

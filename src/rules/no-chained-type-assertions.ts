@@ -1,5 +1,6 @@
 import { defineRule } from "@oxlint/plugins";
 import type { ESTree } from "@oxlint/plugins";
+import { cast, readField } from "../shared/structural.ts";
 
 type TypeAssertionExpression = ESTree.TSAsExpression | ESTree.TSTypeAssertion;
 
@@ -31,7 +32,7 @@ function isOutermostAssertionInChain(node: TypeAssertionExpression, ancestors: R
   while (index >= 0) {
     const parent = ancestors[index]!;
     if (parent.type !== "ParenthesizedExpression" || parent.expression !== current) break;
-    current = parent as unknown as ESTree.Expression;
+    current = cast<ESTree.Expression>(parent);
     index -= 1;
   }
 
@@ -70,7 +71,7 @@ export const noChainedTypeAssertionsRule = defineRule({
   createOnce(context) {
     const checkTypeAssertion = (node: TypeAssertionExpression) => {
       if (
-        !isOutermostAssertionInChain(node, context.sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>) ||
+        !isOutermostAssertionInChain(node, cast<ReadonlyArray<ESTree.Node>>(context.sourceCode.getAncestors(node))) ||
         !isForbiddenAssertionChain(node)
  )
         return;

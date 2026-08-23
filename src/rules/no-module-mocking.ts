@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree, Scope, SourceCode, Variable } from "@oxlint/plugins";
+import { cast, readField } from "../shared/structural.ts";
 
 const moduleMockMethods = new Set(["doMock", "mock", "unstable_mockModule"]);
 
@@ -40,7 +41,7 @@ function isTestFrameworkObject(
   }
   return variable.defs.some((definition) => {
     if (definition.type !== "ImportBinding") return false;
-    const importDeclaration = (sourceCode.getAncestors(definition.node) as unknown as ReadonlyArray<ESTree.Node>).at(-1);
+    const importDeclaration = (cast<ReadonlyArray<ESTree.Node>>(sourceCode.getAncestors(definition.node))).at(-1);
     if (importDeclaration?.type !== "ImportDeclaration") {
       return false;
     }

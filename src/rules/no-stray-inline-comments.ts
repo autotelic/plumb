@@ -36,7 +36,6 @@ export const noStrayInlineCommentsRule = defineRule({
 		return {
 			before() {
 				if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
-				// Per-file lifecycle: ranges are file-relative and must not accumulate.
 				bodyRanges.length = 0;
 			},
 			FunctionDeclaration(node) {
@@ -72,6 +71,7 @@ export const noStrayInlineCommentsRule = defineRule({
 				});
 				for (const comment of lineComments) {
 					if (exempt.has(comment)) continue;
+					// SAFETY: Line comments carry a range; the offset anchors body-range checks.
 					const start = comment.range?.[0];
 					if (start === undefined) continue;
 					if (!bodyRanges.some(([from, to]) => start > from && start < to)) continue;

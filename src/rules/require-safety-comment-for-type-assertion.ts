@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree, SourceCode } from "@oxlint/plugins";
+import { cast, readField } from "../shared/structural.ts";
 
 type TypeAssertion = ESTree.TSAsExpression | ESTree.TSTypeAssertion;
 
@@ -57,7 +58,7 @@ export const requireSafetyCommentForTypeAssertionRule = defineRule({
   },
   createOnce(context) {
     const checkAssertion = (node: TypeAssertion) => {
-      if (isConstAssertion(node) || hasSafetyComment(context.sourceCode, node, context.sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>)) return;
+      if (isConstAssertion(node) || hasSafetyComment(context.sourceCode, node, cast<ReadonlyArray<ESTree.Node>>(context.sourceCode.getAncestors(node)))) return;
       context.report({ node, messageId: "missingSafetyComment" });
     };
 

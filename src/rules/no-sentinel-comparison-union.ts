@@ -1,24 +1,22 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { readField } from "../shared/structural.ts";
 import { ancestorsOf } from "../shared/ancestors.ts";
 
 const SENTINELS = new Set<number>([-1, 0, 1]);
 const ORDERING_OPERATORS = new Set([">", "<", ">=", "<="]);
 
 function sentinelValue(expression: ESTree.Expression): number | null {
-	if (
-		expression.type === "Literal" &&
-		typeof expression.value === "number" &&
-		SENTINELS.has(expression.value)
-	) {
-		return expression.value;
+	if (expression.type === "Literal") {
+		const numeric = readField<number>(expression, "value");
+		return numeric !== undefined && SENTINELS.has(numeric) ? numeric : null;
 	}
 	if (
 		expression.type === "UnaryExpression" &&
 		expression.operator === "-" &&
 		expression.argument.type === "Literal" &&
-		expression.argument.value === 1
+		expression.argument.value === -1
 	) {
 		return -1;
 	}

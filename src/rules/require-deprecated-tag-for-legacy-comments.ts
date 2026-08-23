@@ -12,7 +12,7 @@ const LEGACY_PROSE =
 
 const DEPRECATED_TAG = /@deprecated\b/iu;
 
-/** Legacy warnings written in prose only are invisible to tooling; require the machine-readable tag. */
+/** Prose-only retirement notes are invisible to tooling; require the machine-readable tag. */
 export const requireDeprecatedTagForLegacyCommentsRule = defineRule({
 	meta: {
 		type: "problem",
@@ -28,6 +28,7 @@ export const requireDeprecatedTagForLegacyCommentsRule = defineRule({
 	createOnce(context) {
 		return {
 			Program(node) {
+				// SAFETY: getAllComments returns engine comment objects matching CommentLike.
 				for (const comment of context.sourceCode.getAllComments() as CommentLike[]) {
 					if (comment.type !== "Block") continue;
 					if (!LEGACY_PROSE.test(comment.value)) continue;

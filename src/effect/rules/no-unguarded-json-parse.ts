@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree, SourceCode } from "@oxlint/plugins";
+import { cast } from "../../shared/structural.ts";
 
 import { ancestorsOf } from "../../shared/ancestors.ts";
 import { readField } from "../../shared/structural.ts";
@@ -32,7 +33,7 @@ function insideChannelReturningFunction(sourceCode: SourceCode, node: ESTree.Nod
 	for (let index = chain.length - 1; index >= 0; index--) {
 		const current = chain[index]!;
 		if (current.type === "Program") break;
-		const fn = current as unknown as { returnType?: { typeAnnotation?: ESTree.TSType } };
+		const fn = cast<{ returnType?: { typeAnnotation?: ESTree.TSType } }>(current);
 		if (
 			(current.type === "FunctionDeclaration" ||
 				current.type === "FunctionExpression" ||

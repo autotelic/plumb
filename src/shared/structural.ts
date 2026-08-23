@@ -38,6 +38,16 @@ export function isString(value: NodeFieldValue | ESTree.Expression): value is st
 	return typeof value === "string";
 }
 
+/**
+ * Reinterpret an opaquely-typed value as T.
+ *
+ * SAFETY: the single sanctioned escape hatch for AST shapes the engine types
+ * loosely; callers document the verified invariant adjacent to each call.
+ */
+export function cast<T>(value: unknown): T {
+	return value as T;
+}
+
 /** Discriminate object-valued fields of an AST node (child containers). */
 export function isRecordObject(
 	value: NodeFieldValue | Record<string, NodeFieldValue>,

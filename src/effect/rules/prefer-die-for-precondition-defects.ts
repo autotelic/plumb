@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { cast } from "../../shared/structural.ts";
 import { readField } from "../../shared/structural.ts";
 import { ancestorsOf } from "../../shared/ancestors.ts";
 
@@ -8,7 +9,7 @@ const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
 
 /** Whether the annotation references the Effect or Either channel (defect-capable). */
 function returnsEffectOrFailChannel(node: ESTree.Node): boolean {
-	const fn = node as unknown as { returnType?: { typeAnnotation?: ESTree.TSType } };
+	const fn = cast<{ returnType?: { typeAnnotation?: ESTree.TSType } }>(node);
 	const annotation = fn.returnType?.typeAnnotation;
 	if (annotation === undefined) return false;
 	const seen: Array<ESTree.TSType> = [annotation];

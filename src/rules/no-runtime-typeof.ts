@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree, SourceCode } from "@oxlint/plugins";
+import { cast, readField } from "../shared/structural.ts";
 
 import { firstOptionRecord } from "../shared/rule-options.ts";
 
@@ -15,7 +16,7 @@ function isRuntimeFunction(node: ESTree.Node): node is RuntimeFunction {
 }
 
 function isInsideTypeGuard(node: ESTree.Node, sourceCode: SourceCode): boolean {
-	const ancestors = sourceCode.getAncestors(node) as unknown as ReadonlyArray<ESTree.Node>;
+	const ancestors = cast<ReadonlyArray<ESTree.Node>>(sourceCode.getAncestors(node));
 	for (let index = ancestors.length - 1; index >= 0; index--) {
 		const current = ancestors[index]!;
 		if (current.type === "Program") break;

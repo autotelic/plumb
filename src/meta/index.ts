@@ -1,5 +1,6 @@
 import { eslintCompatPlugin } from "@oxlint/plugins";
 
+import { noDisableDirectivesRule } from "./rules/no-disable-directives.ts";
 import { noManualAncestorWalksRule } from "./rules/no-manual-ancestor-walks.ts";
 import { preferBeforeFileScopeRule } from "./rules/prefer-before-file-scope.ts";
 import { requireCreateOnceRule } from "./rules/require-create-once.ts";
@@ -13,6 +14,7 @@ import { requireRuleTesterRule } from "./rules/require-rule-tester.ts";
 const plumbMetaPlugin = eslintCompatPlugin({
 	meta: { name: "plumb-meta" },
 	rules: {
+		"no-disable-directives": noDisableDirectivesRule,
 		"no-manual-ancestor-walks": noManualAncestorWalksRule,
 		"prefer-before-file-scope": preferBeforeFileScopeRule,
 		"require-create-once": requireCreateOnceRule,

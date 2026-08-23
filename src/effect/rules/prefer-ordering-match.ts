@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { cast } from "../../shared/structural.ts";
 import { readField } from "../../shared/structural.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
@@ -44,8 +45,8 @@ function orderingZeroSubject(
 
 function isSentinelValue(expression: ESTree.Node | null | undefined): boolean {
 	if (expression === null || expression === undefined) return false;
-	if ((expression as unknown as { type?: string }).type === "ParenthesizedExpression") {
-		return isSentinelValue((expression as unknown as { expression: ESTree.Expression }).expression);
+	if (cast<string>(readField(expression, "type")) === "ParenthesizedExpression") {
+		return isSentinelValue(cast<{ expression: ESTree.Expression }>(expression).expression);
 	}
 	if (expression.type === "UnaryExpression") {
 		return (

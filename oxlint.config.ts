@@ -25,6 +25,7 @@ export default defineConfig({
     "plumb/no-product-of-state-booleans": "error",
     "plumb/no-reflect-apply": "error",
     "plumb/no-reflect-get": "error",
+    "plumb/no-reinterpret-cast": "error",
     "plumb/no-runtime-typeof": "error",
     "plumb/no-sentinel-comparison-union": "error",
     "plumb/no-stray-inline-comments": "error",
@@ -55,8 +56,40 @@ export default defineConfig({
     "plumb-meta/no-manual-ancestor-walks": "error",
     "plumb-meta/prefer-before-file-scope": "error",
     "plumb-meta/require-create-once": "error",
+    "plumb-meta/no-disable-directives": "error",
   },
   overrides: [
+    // Reflection/decode boundary modules: representation checks and broad
+    // parameters are their purpose — they own the crossing between raw
+    // AST/config payloads and typed rule logic.
+    {
+      files: [
+        "src/shared/structural.ts",
+        "src/shared/rule-options.ts",
+        "src/shared/ancestors.ts",
+      ],
+      rules: {
+        // plumb:allow-off — typed bridge over raw payloads; casts JSDoc-documented
+        "plumb/no-reinterpret-cast": "off",
+        "plumb/no-runtime-typeof": "off",
+        "plumb/no-object-parameters": "off",
+        "plumb/no-unsafe-dictionary-type": "off",
+        "plumb/no-unknown-parameters": "off",
+        // Bridge modules cross raw AST payloads into typed logic; their casts
+        // are documented via JSDoc SAFETY notes at each site.
+        "plumb/no-chained-type-assertions": "off",
+        "plumb/require-safety-comment-for-type-assertion": "off",
+      },
+    },
+    {
+      // Test harnesses adapt plugin objects to RuleTester; the adapter casts
+      // are confined to these files and covered by the suites themselves.
+      files: ["src/**/*.test.ts"],
+      rules: {
+        "plumb/no-chained-type-assertions": "off",
+        "plumb/require-safety-comment-for-type-assertion": "off",
+      },
+    },
     {
       files: ["src/**/*.ts"],
       rules: {

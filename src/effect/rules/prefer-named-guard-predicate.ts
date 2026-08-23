@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
+import { cast } from "../../shared/structural.ts";
 import { childNodes } from "../../shared/child-nodes.ts";
 import { readField } from "../../shared/structural.ts";
 
@@ -37,7 +38,7 @@ function chainLeaf(expression: ESTree.Expression): boolean {
 		return chainLeaf(expression.left) && chainLeaf(expression.right);
 	}
 	if (readField<string>(expression, "type") === "ParenthesizedExpression") {
-		return chainLeaf((expression as unknown as { expression: ESTree.Expression }).expression);
+		return chainLeaf(cast<{ expression: ESTree.Expression }>(expression).expression);
 	}
 	return isDomainPredicateCall(expression);
 }
