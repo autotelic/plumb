@@ -1,7 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree, SourceCode } from "@oxlint/plugins";
-import { cast, readField } from "../shared/structural.ts";
+import { cast } from "../shared/structural.ts";
 
 type TypeAssertion = ESTree.TSAsExpression | ESTree.TSTypeAssertion;
 
@@ -12,36 +12,6 @@ const commentOwnerKinds = new Set([
   "ThrowStatement",
   "VariableDeclaration",
 ]);
-
-function isConstAssertion(node: TypeAssertion): boolean {
-  return (
-    node.typeAnnotation.type === "TSTypeReference" &&
-    node.typeAnnotation.typeName.type === "Identifier" &&
-    node.typeAnnotation.typeName.name === "const"
-  );
-}
-
-function hasSafetyComment(
-  sourceCode: SourceCode,
-  node: TypeAssertion,
-  ancestors: ReadonlyArray<ESTree.Node>,
-): boolean {
-  const chain: Array<ESTree.Node> = [node, ...[...ancestors].reverse()];
-  for (let index = 0; index < chain.length; index += 1) {
-    const current = chain[index]!;
-    if (
-      sourceCode
-        .getCommentsBefore(current)
-        .some((comment) => comment.end <= node.start && /\bSAFETY\s*:/u.test(comment.value))
-    ) {
-      return true;
-    }
-    if (commentOwnerKinds.has(current.type)) return false;
-    const parent = chain[index + 1];
-    if (parent === undefined || parent.type === "Program") return false;
-  }
-  return false;
-}
 
 /** Require every non-const type assertion to state the invariant TypeScript cannot express. */
 export const requireSafetyCommentForTypeAssertionRule = defineRule({
@@ -58,8 +28,31 @@ export const requireSafetyCommentForTypeAssertionRule = defineRule({
   },
   createOnce(context) {
     const checkAssertion = (node: TypeAssertion) => {
-      if (isConstAssertion(node) || hasSafetyComment(context.sourceCode, node, cast<ReadonlyArray<ESTree.Node>>(context.sourceCode.getAncestors(node)))) return;
-      context.report({ node, messageId: "missingSafetyComment" });
+      const isConstAssertion =
+        node.typeAnnotation.type === "TSTypeReference" &&
+        node.typeAnnotation.typeName.type === "Identifier" &&
+        node.typeAnnotation.typeName.name === "const";
+      if (isConstAssertion) return;
+      const ancestors = cast<ReadonlyArray<ESTree.Node>>(
+        context.sourceCode.getAncestors(node),
+      );
+      const chain: Array<ESTree.Node> = [node, ...[...ancestors].reverse()];
+      let justified = false;
+      for (let index = 0; index < chain.length; index += 1) {
+        const current = chain[index]!;
+        if (
+          context.sourceCode
+            .getCommentsBefore(current)
+            .some((comment) => comment.end <= node.start && /\bSAFETY\s*:/u.test(comment.value))
+        ) {
+          justified = true;
+          break;
+        }
+        if (commentOwnerKinds.has(current.type)) break;
+        const parent = chain[index + 1];
+        if (parent === undefined || parent.type === "Program") break;
+      }
+      if (!justified) context.report({ node, messageId: "missingSafetyComment" });
     };
 
     return {
