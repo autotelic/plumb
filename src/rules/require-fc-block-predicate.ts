@@ -2,10 +2,9 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
 
-/** Documented contract for isPropertyCall. */
 /** Whether the callee accesses `.property` or `.asyncProperty`.
- * @param callee - The callee expression of a call being inspected.
- * @returns True when the callee is a property access matching fastcheck patterns. */
+ * @param {ESTree.CallExpression["callee"]} callee - The callee expression of a call being inspected.
+ * @returns {boolean} True when the callee is a property access matching fastcheck patterns. */
 function isPropertyCall(callee: ESTree.CallExpression["callee"]): boolean {
 	return (
 		callee.type === "MemberExpression" &&
