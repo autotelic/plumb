@@ -2,6 +2,11 @@ import { defineConfig } from "oxlint";
 
 export default defineConfig({
   ignorePatterns: ["node_modules"],
+  // NOTE: `plugins` replaces the default-on set; list everything we rely on.
+  plugins: ["eslint", "oxc", "typescript", "unicorn", "jsdoc", "node"],
+  settings: {
+    jsdoc: { mode: "typescript" },
+  },
   jsPlugins: [
     { name: "plumb", specifier: "./src/index.ts" },
     { name: "plumb-meta", specifier: "./src/meta/index.ts" },
@@ -60,6 +65,17 @@ export default defineConfig({
     "plumb-meta/prefer-before-file-scope": "error",
     "plumb-meta/require-create-once": "error",
     "plumb-meta/no-disable-directives": "error",
+
+    // jsdoc — annotation quality for every documented contract.
+    "jsdoc/require-param": "error",
+    "jsdoc/require-param-description": "error",
+    "jsdoc/require-param-name": "error",
+    "jsdoc/require-param-type": "error",
+    "jsdoc/require-returns": "error",
+    "jsdoc/require-returns-description": "error",
+    "jsdoc/require-returns-type": "error",
+    "jsdoc/check-tag-names": "error",
+    "jsdoc/no-blank-blocks": "error",
   },
   overrides: [
     // Reflection/decode boundary modules: representation checks and broad
