@@ -7,7 +7,13 @@ import type { ESTree } from "@oxlint/plugins";
  * establishes the key exists on the node's runtime shape; the value's domain is
  * owned by the AST grammar, not by untrusted input.
  */
-export function readField<T = unknown>(node: unknown, key: string): T | undefined {
+export function readField<T = unknown>(
+	node: unknown,
+	key: string,
+): T | undefined {
+	// Null/undefined inputs (absent optional fields) yield undefined, mirroring
+	// optional-chaining semantics so callers can chain reads safely.
+	if (node === null || node === undefined) return undefined;
 	return (node as Record<string, unknown>)[key] as T | undefined;
 }
 
@@ -22,6 +28,7 @@ export function isString(value: unknown): value is string {
 	return typeof value === "string";
 }
 
+/** Type guard: the value is a non-null object. */
 export function isRecordObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
 }

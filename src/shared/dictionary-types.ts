@@ -48,6 +48,12 @@ function declaredStatement(statement: ESTree.Statement): ESTree.Node | null {
 		: statement;
 }
 
+/**
+ * Build the alias/interface maps for a program so type references can be
+ * resolved to their declarations during dictionary classification.
+ * @param program - Root AST node of the file under lint.
+ * @returns Environment mapping declared names to their declaration nodes.
+ */
 export function createTypeEnvironment(program: ESTree.Program): TypeEnvironment {
 	const aliases = new Map<string, ESTree.TSTypeAliasDeclaration>();
 	const interfaces = new Map<string, ESTree.TSInterfaceDeclaration[]>();
@@ -307,6 +313,12 @@ function dictionaryValueTypes(
 	return dictionaryValueTypes(alias.typeAnnotation, environment, nextSubstitutions, nextResolving);
 }
 
+/**
+ * Classify a single type as an unsafe dictionary value, if it is one.
+ * @param valueType - Type annotation of the dictionary value slot.
+ * @param environment - Declared-alias environment from createTypeEnvironment.
+ * @returns The unsafe kind ("any", "unknown", "object", "empty-object") or null.
+ */
 export function classifyUnsafeDictionaryValue(
 	valueType: ESTree.TSType,
 	environment: TypeEnvironment,
@@ -315,6 +327,12 @@ export function classifyUnsafeDictionaryValue(
 	return unsafeValue === null ? null : { kind: "unsafe-dictionary", unsafeValue };
 }
 
+/**
+ * Classify the value side of an index-signature or Record dictionary.
+ * @param type - The dictionary type node being inspected.
+ * @param environment - Declared-alias environment from createTypeEnvironment.
+ * @returns Classification with kind and location, or null when safe.
+ */
 export function classifyUnsafeDictionary(
 	type: ESTree.TSType,
 	environment: TypeEnvironment,
@@ -340,6 +358,12 @@ function resolvesToDictionary(
 	return dictionaryValueTypes(type, environment, substitutions, resolvingAliases).length > 0;
 }
 
+/**
+ * Describe what a widening assignment erases, for report messaging.
+ * @param type - The assigned (widened) type.
+ * @param environment - Declared-alias environment from createTypeEnvironment.
+ * @returns Human-readable target description, or null when not a widening.
+ */
 export function classifyWideningTarget(
 	type: ESTree.TSType,
 	environment: TypeEnvironment,
@@ -467,6 +491,11 @@ function classifyAliasBroadTarget(
 	);
 }
 
+/**
+ * Whether an expression is an object literal carrying at least one property.
+ * @param expression - Candidate expression node.
+ * @returns True only for ObjectExpression nodes with members.
+ */
 export function isPopulatedObjectExpression(expression: ESTree.Expression): boolean {
 	let current = expression;
 	while (
@@ -480,6 +509,12 @@ export function isPopulatedObjectExpression(expression: ESTree.Expression): bool
 	return current.type === "ObjectExpression" && current.properties.length > 0;
 }
 
+/**
+ * Whether an expression carries first-hand type evidence (schema parse,
+ * literal, typed constructor) and therefore needs no further guarding.
+ * @param expression - Candidate expression node.
+ * @returns True when the expression is self-evidencing.
+ */
 export function isKnownEvidenceExpression(expression: ESTree.Expression): boolean {
 	let current = expression;
 	while (
