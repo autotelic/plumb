@@ -104,9 +104,6 @@ export const noGenericExportNamesRule = defineRule({
 	meta: {
 		type: "problem",
 		docs: {
-			// Rationale: agents search by text, so a bare generic name lands on hundreds of
-			// unrelated hits. A module-qualified token (Currency.make, like Go's pkg.New)
-			// is already distinctive, so the module name may supply the missing domain word.
 			description:
 				"Disallow exported symbol names that stay generic even after module qualification (e.g. utils.ts exporting `create`); a distinctive qualified token such as `Currency.make` greps to exactly the right definition and call sites.",
 		},

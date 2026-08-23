@@ -8,25 +8,6 @@ const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
 /** Directive and safety comments are tooling contracts, not prose. */
 const EXEMPT = /^(?:SAFETY:|eslint|oxlint|@ts-|ts-check|jscpd)/iu;
 
-function childNodes(node: ESTree.Node): Array<ESTree.Node> {
-	const children: Array<ESTree.Node> = [];
-	for (const key of Object.keys(node)) {
-		if (key === "parent" || key === "loc" || key === "range") continue;
-		const value = readField(node, key);
-		const candidates = Array.isArray(value) ? value : [value];
-		for (const candidate of candidates) {
-			if (
-				candidate !== null &&
-				typeof candidate === "object" &&
-				typeof (candidate as ESTree.Node).type === "string"
-			) {
-				children.push(candidate as ESTree.Node);
-			}
-		}
-	}
-	return children;
-}
-
 interface CommentLike {
 	type: string;
 	value: string;
@@ -48,26 +29,24 @@ export const noStrayInlineCommentsRule = defineRule({
 		},
 	},
 	createOnce(context) {
+		const bodyRanges: Array<readonly [number, number]> = [];
+		const recordBody = (body: { range?: readonly [number, number] } | null | undefined): void => {
+			if (body?.range !== undefined && body.range !== null) bodyRanges.push(body.range);
+		};
 		return {
 			before() {
 				if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
 			},
-			Program(node) {
-				const bodyRanges: Array<[number, number]> = [];
-				const visit = (current: ESTree.Node): void => {
-					if (
-						current.type === "FunctionDeclaration" ||
-						current.type === "FunctionExpression" ||
-						current.type === "ArrowFunctionExpression"
-					) {
-						const body = current.body as unknown as { range?: [number, number] } | null;
-						if (body?.range !== undefined && body.range !== null) {
-							bodyRanges.push(body.range);
-						}
-					}
-					for (const child of childNodes(current)) visit(child);
-				};
-				visit(node);
+			FunctionDeclaration(node) {
+				recordBody(node.body);
+			},
+			FunctionExpression(node) {
+				recordBody(node.body);
+			},
+			ArrowFunctionExpression(node) {
+				recordBody(node.body);
+			},
+			"Program:exit"() {
 				const lineComments = (
 					context.sourceCode.getAllComments() as CommentLike[]
 				).filter((comment) => comment.type === "Line");

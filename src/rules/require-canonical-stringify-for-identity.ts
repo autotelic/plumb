@@ -61,7 +61,6 @@ export const requireCanonicalStringifyForIdentityRule = defineRule({
 				if (parent.type === "CallExpression" && parent.callee.type === "MemberExpression" && !parent.callee.computed) {
 					const method = parent.callee.property;
 					if (method.type !== "Identifier") return;
-					// `has`/`delete` are ambiguous between Map/Set; default to the map wording
 					if (MAP_KEY_METHODS.has(method.name) && parent.arguments[0] === node) {
 						report(node, `${method.name}() on a map`);
 						return;
