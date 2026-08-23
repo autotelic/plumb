@@ -7,19 +7,6 @@ const COMPARISON_OPERATORS = new Set(["===", "!==", "==", "!="]);
 const MAP_KEY_METHODS = new Set(["get", "has", "delete"]);
 const SET_KEY_METHODS = new Set(["add", "has", "delete"]);
 
-function isJsonStringify(node: ESTree.Node): boolean {
-	if (node.type !== "CallExpression") return false;
-	const callee = node.callee;
-	return (
-		callee.type === "MemberExpression" &&
-		!callee.computed &&
-		callee.object.type === "Identifier" &&
-		callee.object.name === "JSON" &&
-		callee.property.type === "Identifier" &&
-		callee.property.name === "stringify"
-	);
-}
-
 /**
  * Canonical form: JSON.stringify walks insertion order, so structurally
  * equal data can serialise to different strings depending on construction
@@ -40,37 +27,51 @@ export const requireCanonicalStringifyForIdentityRule = defineRule({
 		},
 	},
 	createOnce(context) {
-		function report(node: ESTree.CallExpression, use: string): void {
-			context.report({ node, messageId: "nonCanonicalIdentity", data: { use } });
+		function report(payload: { node: ESTree.CallExpression; use: string }): void {
+			context.report({
+				node: payload.node,
+				messageId: "nonCanonicalIdentity",
+				data: { use: payload.use },
+			});
 		}
 
 		return {
 			CallExpression(node) {
-				if (!isJsonStringify(node)) return;
+				const callee = node.callee;
+				if (
+					node.type !== "CallExpression" ||
+					callee.type !== "MemberExpression" ||
+					callee.computed ||
+					callee.object.type !== "Identifier" ||
+					callee.object.name !== "JSON" ||
+					callee.property.type !== "Identifier" ||
+					callee.property.name !== "stringify"
+				)
+					return;
 				const parent = (ancestorsOf(context.sourceCode, node)).at(-1);
 				if (parent === null || parent === undefined) return;
 
 				if (parent.type === "BinaryExpression" && COMPARISON_OPERATORS.has(parent.operator)) {
-					report(node, "equality comparison");
+					report({ node, use: "equality comparison" });
 					return;
 				}
 				if (parent.type === "MemberExpression" && parent.computed) {
-					report(node, "property lookup");
+					report({ node, use: "property lookup" });
 					return;
 				}
 				if (parent.type === "CallExpression" && parent.callee.type === "MemberExpression" && !parent.callee.computed) {
 					const method = parent.callee.property;
 					if (method.type !== "Identifier") return;
 					if (MAP_KEY_METHODS.has(method.name) && parent.arguments[0] === node) {
-						report(node, `${method.name}() on a map`);
+						report({ node, use: `${method.name}() on a map` });
 						return;
 					}
 					if (SET_KEY_METHODS.has(method.name) && parent.arguments[0] === node) {
-						report(node, `${method.name}() on a set`);
+						report({ node, use: `${method.name}() on a set` });
 						return;
 					}
 					if (method.name === "set" && parent.arguments[0] === node) {
-						report(node, "a map key");
+						report({ node, use: "a map key" });
 					}
 				}
 			},
