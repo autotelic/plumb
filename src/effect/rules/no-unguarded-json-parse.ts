@@ -100,7 +100,7 @@ function isEffectTryCall(node: ESTree.Node): boolean {
  */
 function isGuardedParse(sourceCode: SourceCode, node: ESTree.Node): boolean {
 	// Nearest-first chain; probe resumes mid-chain when climbing past pure containers.
-	const chain = ancestorsOf(sourceCode, node);
+	const chain = [...ancestorsOf(sourceCode, node)].reverse();
 	for (let index = 0; index < chain.length; index += 1) {
 		const current = chain[index]!;
 		if (current.type === "Program") return false;
