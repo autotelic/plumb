@@ -52,8 +52,6 @@ export const preferPayloadBrandRule = defineRule({
 					const declaration = declaredStatement(statement);
 					if (declaration?.type !== "TSInterfaceDeclaration") continue;
 					const heritages = declaration.extends ?? [];
-					// Field-carrying branded interfaces (interface X extends Fields, Brand.Brand<"X">)
-					// already recover their payload; only wholly opaque brands are flagged.
 					if (heritages.length !== 1) continue;
 					if (!isBrandBrandReference(heritages[0]!.expression)) continue;
 					context.report({

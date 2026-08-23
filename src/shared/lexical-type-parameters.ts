@@ -38,7 +38,6 @@ export function lexicalTypeParameterNames(
 	visitorKeys: VisitorKeys,
 ): ReadonlySet<string> {
 	const names = new Set<string>();
-	// Nearest-first chain including the node itself; `descendant` trails by one.
 	const chain: Array<ESTree.Node> = [node, ...[...ancestors].reverse()];
 	for (let index = 1; index < chain.length; index += 1) {
 		const current = chain[index]!;

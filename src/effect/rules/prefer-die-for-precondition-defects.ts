@@ -22,8 +22,9 @@ function returnsEffectOrFailChannel(node: ESTree.Node): boolean {
 					name.type === "Identifier"
 						? name.name
 						: name.type === "TSQualifiedName"
-							? // Leftmost namespace of Effect.Effect / Either.Right etc.
-								(name.left.type === "Identifier" ? name.left.name : null)
+							? name.left.type === "Identifier"
+								? name.left.name
+								: null
 							: null;
 				if (head === "Effect" || head === "Either") {
 					return true;

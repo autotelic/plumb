@@ -57,7 +57,6 @@ function qualifierWords(filename: string): Array<string> {
 	const base = segments[segments.length - 1] ?? "";
 	let stem = base.replace(/\.[cm]?[jt]sx?$/u, "");
 	if (stem === "index" || stem === "mod") {
-		// `session-broker/index.ts` qualifies as SessionBroker.
 		stem = segments[segments.length - 2] ?? stem;
 	}
 	return splitWords(stem);
@@ -117,7 +116,6 @@ export const noGenericExportNamesRule = defineRule({
 		},
 	},
 	createOnce(context) {
-		// `before()` runs per file, so these hold the current file's values.
 		let moduleWords: Array<string> = [];
 		let moduleSuppliesDomain = false;
 		return {
@@ -134,7 +132,6 @@ export const noGenericExportNamesRule = defineRule({
 					for (const id of namedIdentifiers(declaration)) {
 						const nameWords = splitWords(id.name);
 						if (!isAllGeneric(nameWords)) continue;
-						// Qualified token (Module.symbol) is distinctive: module carries a domain word.
 						if (moduleSuppliesDomain) continue;
 						context.report({
 							node: id,

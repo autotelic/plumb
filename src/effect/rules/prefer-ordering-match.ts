@@ -86,7 +86,6 @@ export const preferOrderingMatchRule = defineRule({
 			if (tests.some((test) => test.subject === null)) return;
 			const subject = tests[0]!.subject!;
 			if (tests.some((test) => test.subject !== subject)) return;
-			// purely-sentinel ladders already belong to no-sentinel-comparison-union
 			if (leaves.every((leaf) => isSentinelValue(leaf))) return;
 			context.report({
 				node: tests[0]!.node,

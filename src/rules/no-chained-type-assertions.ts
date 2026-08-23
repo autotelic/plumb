@@ -27,7 +27,6 @@ function isConstAssertion(node: TypeAssertionExpression): boolean {
 function isOutermostAssertionInChain(node: TypeAssertionExpression, ancestors: ReadonlyArray<ESTree.Node>): boolean {
   let current: ESTree.Expression = node;
 
-  // Nearest-first scan through parenthesized wrappers.
   let index = ancestors.length - 1;
   while (index >= 0) {
     const parent = ancestors[index]!;

@@ -93,13 +93,14 @@ function isEffectTryCall(node: ESTree.Node): boolean {
 }
 
 /**
- * Whether the parse sits inside a JS try block or the `try` thunk of an
- * `Effect.try` call. Crossing a function boundary is allowed only when that
- * function is itself handed straight to `Effect.try`.
+ * Guard recognition for a JSON.parse site.
+ *
+ * A thunk handed straight to Effect.try through an object literal
+ * ({ try: () => ..., catch: ... }) counts as guarded: climb past pure
+ * containers (Property, ObjectExpression, ArrayExpression) and resume the
+ * walk at the container exit, re-processing it.
  */
 function isGuardedParse(sourceCode: SourceCode, node: ESTree.Node): boolean {
-	// Nearest-first chain; probe resumes mid-chain when climbing past pure containers.
-	// Manual index control: resuming at a probe must re-process the probe itself.
 	const chain = [...ancestorsOf(sourceCode, node)].reverse();
 	let index = 0;
 	while (index < chain.length) {
@@ -112,8 +113,6 @@ function isGuardedParse(sourceCode: SourceCode, node: ESTree.Node): boolean {
 			current.type === "FunctionExpression" ||
 			current.type === "ArrowFunctionExpression"
 		) {
-			// A thunk may be handed straight to Effect.try through an object literal
-			// ({ try: () => ..., catch: ... }); climb past pure containers to check.
 			let probeIndex = index + 1;
 			while (
 				probeIndex < chain.length &&
@@ -135,7 +134,6 @@ function isGuardedParse(sourceCode: SourceCode, node: ESTree.Node): boolean {
 }
 
 function hasSafetyComment(sourceCode: SourceCode, node: ESTree.Node): boolean {
-	// Walk outward from the assertion itself, stopping before the Program root.
 	const chain: Array<ESTree.Node> = [node, ...[...ancestorsOf(sourceCode, node)].reverse()];
 	for (let index = 0; index < chain.length; index += 1) {
 		const current = chain[index]!;

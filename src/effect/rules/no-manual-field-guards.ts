@@ -125,8 +125,6 @@ export const noManualFieldGuardsRule = defineRule({
 				}
 			},
 			"Program:exit"() {
-				// A module either decodes payloads through SchemaParser or it does not:
-				// decide after the whole file is seen so visit order cannot hide guards.
 				if (!hasDecode) return;
 				for (const { node, messageId } of pending) {
 					context.report({ node, messageId });
@@ -135,9 +133,6 @@ export const noManualFieldGuardsRule = defineRule({
 			VariableDeclarator(node) {
 				if (node.init !== null && node.init !== undefined && node.init.type === "CallExpression") {
 					const name = calleeName(node.init);
-					// Only parser-style cores (from*Option) carry payload fields worth
-					// refining into Schema; result-Option plumbing (addOption etc.) is
-					// blessed internal composition, not field validation.
 					if (
 						name !== null &&
 						name.startsWith("from") &&

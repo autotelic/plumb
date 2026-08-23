@@ -169,7 +169,6 @@ function findOptionType(type: ESTree.TSType): string | null {
 	switch (type.type) {
 		case "TSTupleType":
 			for (const element of type.elementTypes) {
-				// Named tuple members (e.g. `amount: T`) expose the payload as elementType.
 				// SAFETY: TSTupleElement is either a named member carrying elementType or a bare TSType.
 				const payload =
 					(element as { elementType?: ESTree.TSType }).elementType ?? (element as ESTree.TSType);
@@ -208,7 +207,6 @@ function optionInReturnType(annotation: ESTree.TSType): string | null {
 
 
 function unwrapReturnType(annotation: ESTree.TSType): ESTree.TSType {
-	// Parenthesised or union-annotated returns still expose their first Option member.
 	let current = annotation;
 	while (current.type === "TSParenthesizedType") current = current.typeAnnotation;
 	if (current.type === "TSUnionType") {

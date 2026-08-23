@@ -43,7 +43,6 @@ export const noVagueTestFilenamesRule = defineRule({
 		},
 	},
 	createOnce(context) {
-		// `before()` runs per file, so this closure holds the current file's path.
 		let filePath = "";
 		return {
 			before() {

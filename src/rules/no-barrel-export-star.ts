@@ -18,7 +18,6 @@ export const noBarrelExportStarRule = defineRule({
 	createOnce(context) {
 		return {
 			ExportAllDeclaration(node) {
-				// `export * as ns from ...` binds a namespace name, so ownership stays discoverable.
 				if (node.exported !== null && node.exported !== undefined) return;
 				context.report({
 					node,

@@ -25,7 +25,6 @@ function hasSafetyComment(
   node: TypeAssertion,
   ancestors: ReadonlyArray<ESTree.Node>,
 ): boolean {
-  // Walk outward from the assertion itself, stopping before the Program root.
   const chain: Array<ESTree.Node> = [node, ...[...ancestors].reverse()];
   for (let index = 0; index < chain.length; index += 1) {
     const current = chain[index]!;

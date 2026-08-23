@@ -28,7 +28,6 @@ export const noServiceConstructorImportsRule = defineRule({
 		},
 	},
 	createOnce(context) {
-		// `before()` runs per file, so this holds the current file's verdict.
 		let isTestFile = false;
 
 		return {

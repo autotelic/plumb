@@ -47,7 +47,6 @@ export const requireCanonicalStringifyForIdentityRule = defineRule({
 		return {
 			CallExpression(node) {
 				if (!isJsonStringify(node)) return;
-				// getAncestors returns an internal Node type; recover the ESTree union for narrowing.
 				const parent = (ancestorsOf(context.sourceCode, node)).at(-1);
 				if (parent === null || parent === undefined) return;
 

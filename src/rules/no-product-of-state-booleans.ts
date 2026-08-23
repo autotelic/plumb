@@ -17,7 +17,6 @@ function variantPayloadSignature(
 	node: ESTree.TSTypeLiteral,
 	ancestors: ReadonlyArray<ESTree.Node>,
 ): ESTree.TSPropertySignature | null {
-	// Fixed-depth upward walk: parent, grandparent, ... via nearest-first indexes.
 	const at = (depth: number): ESTree.Node | undefined => ancestors[ancestors.length - 1 - depth];
 	const annotation = at(0);
 	if (annotation?.type !== "TSTypeAnnotation") return null;

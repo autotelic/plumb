@@ -151,7 +151,6 @@ function isBooleanMember(member: ESTree.TSSignature): boolean {
 
 /** Accept both `{ members }` and flattened `{ body }` shapes for an interface/type-literal body. */
 function memberList(bodyNode: ESTree.TSInterfaceBody | ESTree.TSTypeLiteral): ESTree.TSSignature[] {
-	// Interface bodies nest members under `body`; type literals expose them directly.
 	const members = "body" in bodyNode ? bodyNode.body : bodyNode.members;
 	return [...members];
 }

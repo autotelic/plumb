@@ -40,7 +40,6 @@ function isTestFrameworkObject(
   }
   return variable.defs.some((definition) => {
     if (definition.type !== "ImportBinding") return false;
-    // Scope defs expose their declaration only via .parent; recover it through getAncestors.
     const importDeclaration = (sourceCode.getAncestors(definition.node) as unknown as ReadonlyArray<ESTree.Node>).at(-1);
     if (importDeclaration?.type !== "ImportDeclaration") {
       return false;

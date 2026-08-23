@@ -2,9 +2,12 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
 
+/**
+ * Property-name reader for visitor properties. The `Property` selector receives
+ * Object/Binding/AssignmentTarget properties; all share this structural shape.
+ */
 function propertyName(node: { readonly computed: boolean; readonly key: unknown }): string | null {
 	if (node.computed) return null;
-	// `Property` visitors receive Object/Binding/AssignmentTarget properties; all share this shape.
 	const key = node.key as { type?: string; name?: string; value?: unknown };
 	if (key?.type === "Identifier") return key.name ?? null;
 	if (key?.type === "Literal" && typeof key.value === "string") return key.value;
