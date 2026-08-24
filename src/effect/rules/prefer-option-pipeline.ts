@@ -8,39 +8,22 @@ const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
 
 type FunctionLike = ESTree.ArrowFunctionExpression | ESTree.Function;
 
-type MaybeFunction = ESTree.Node | null | undefined;
-
-function isFunctionLike(node: MaybeFunction): boolean {
-	if (node === null || node === undefined) return false;
-	return (
-		node.type === "ArrowFunctionExpression" ||
-		node.type === "FunctionExpression" ||
-		node.type === "FunctionDeclaration"
-	);
-}
-
-function isOptionNone(argument: ESTree.Node | null | undefined): boolean {
-	if (argument === null || argument === undefined || argument.type !== "CallExpression") {
-		return false;
-	}
-	const callee = argument.callee;
-	return (
-		callee.type === "MemberExpression" &&
-		callee.object.type === "Identifier" &&
-		callee.object.name === "Option" &&
-		callee.property.type === "Identifier" &&
-		callee.property.name === "none"
-	);
-}
-
 /**
  * Count Option.none() returns in this function's own body. Nested scopes belong to
  * themselves, and loop bodies hold algorithmic exits rather than guard scatters.
+ *
+ * @param {ESTree.Node} body - The function body to walk.
+ * @returns {number} Number of direct `Option.none()` return exits.
  */
 function countDirectNoneReturns(body: ESTree.Node): number {
 	let count = 0;
 	const visit = (node: ESTree.Node): void => {
-		if (isFunctionLike(node)) return;
+		if (
+			node.type === "ArrowFunctionExpression" ||
+			node.type === "FunctionExpression" ||
+			node.type === "FunctionDeclaration"
+		)
+			return;
 		if (
 			node.type === "ForStatement" ||
 			node.type === "ForInStatement" ||
@@ -50,30 +33,21 @@ function countDirectNoneReturns(body: ESTree.Node): number {
 		) {
 			return;
 		}
-		if (node.type === "ReturnStatement" && isOptionNone(node.argument)) count += 1;
+		if (node.type !== "ReturnStatement") return void 0;
+		const argument = node.argument;
+		if (
+			argument?.type === "CallExpression" &&
+			argument.callee.type === "MemberExpression" &&
+			argument.callee.object.type === "Identifier" &&
+			argument.callee.object.name === "Option" &&
+			argument.callee.property.type === "Identifier" &&
+			argument.callee.property.name === "none"
+		)
+			count += 1;
 		for (const child of childNodes(node)) visit(child);
 	};
 	visit(body);
 	return count;
-}
-
-function declaresOptionReturn(node: FunctionLike): boolean {
-	const returnType = node.returnType?.typeAnnotation;
-	if (returnType === null || returnType === undefined) return false;
-	if (returnType.type !== "TSTypeReference") return false;
-	const typeName = returnType.typeName;
-	if (typeName.type === "Identifier") return typeName.name === "Option";
-	return (
-		typeName.type === "TSQualifiedName" &&
-		typeName.left.type === "Identifier" &&
-		typeName.left.name === "Option" &&
-		typeName.right.type === "Identifier" &&
-		rightName(typeName.right) === "Option"
-	);
-}
-
-function rightName(name: ESTree.TSTypeName): string | null {
-	return name.type === "Identifier" ? name.name : null;
 }
 
 /** Guard-gauntlets over Option should compose into liftPredicate/filter pipelines. */
@@ -91,7 +65,19 @@ export const preferOptionPipelineRule = defineRule({
 	},
 	createOnce(context) {
 		const check = (node: FunctionLike): void => {
-			if (!declaresOptionReturn(node)) return;
+			const returnType = node.returnType?.typeAnnotation;
+			if (returnType === null || returnType === undefined) return;
+			if (returnType.type !== "TSTypeReference") return;
+			const typeName = returnType.typeName;
+			const declaresOption =
+				typeName.type === "Identifier"
+					? typeName.name === "Option"
+					: typeName.type === "TSQualifiedName" &&
+						typeName.left.type === "Identifier" &&
+						typeName.left.name === "Option" &&
+						typeName.right.type === "Identifier" &&
+						typeName.right.name === "Option";
+			if (!declaresOption) return;
 			if (node.body === null || node.body === undefined) return;
 			const count = countDirectNoneReturns(node.body);
 			if (count < 2) return;
