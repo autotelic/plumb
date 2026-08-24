@@ -34,7 +34,7 @@ export const noUnitReturnValidatorsRule = defineRule({
 		},
 		messages: {
 			unitValidator:
-				"`{{name}}` validates and returns nothing (void). Return the refined value (Option/parsed type) so the knowledge survives — parse, don't validate.",
+				"`{{name}}` validates and returns nothing (void). Return the refined value (Option/parsed type) so the knowledge survives: parse, don't validate.",
 		},
 	},
 	createOnce(context) {

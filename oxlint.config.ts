@@ -12,7 +12,7 @@ export default defineConfig({
     { name: "plumb-meta", specifier: "./src/meta/index.ts" },
   ],
   rules: {
-    // plumb — every rule this repo ships, enforced on itself.
+    // plumb: every rule this repo ships, enforced on itself.
     // plumb-effect rules stay consumer-opt-in: plumb is not an Effect application.
     "plumb/no-builtin-throws": "error",
     "plumb/no-boolean-field-signals": "error",
@@ -66,10 +66,10 @@ export default defineConfig({
     "plumb-meta/require-create-once": "error",
     "plumb-meta/no-disable-directives": "error",
 
-    // regexp — flag-sensitive syntax must fail loudly, not silently change meaning.
+    // regexp: flag-sensitive syntax must fail loudly, not silently change meaning.
     "require-unicode-regexp": "error",
 
-    // jsdoc — annotation quality for every documented contract.
+    // jsdoc: annotation quality for every documented contract.
     "jsdoc/require-param": "error",
     "jsdoc/require-param-description": "error",
     "jsdoc/require-param-name": "error",
@@ -82,7 +82,7 @@ export default defineConfig({
   },
   overrides: [
     // Reflection/decode boundary modules: representation checks and broad
-    // parameters are their purpose — they own the crossing between raw
+    // parameters are their purpose: they own the crossing between raw
     // AST/config payloads and typed rule logic.
     {
       // The RuleTester adapter exists to expose an ESLint-style `create` (its
@@ -105,14 +105,14 @@ export default defineConfig({
         "src/shared/ancestors.ts",
       ],
       rules: {
-        // plumb:allow-off — typed bridge over raw payloads; casts JSDoc-documented
+        // plumb:allow-off: typed bridge over raw payloads; casts JSDoc-documented
         "plumb/no-reinterpret-cast": "off", // plumb:allow-off typed bridge over raw payloads
         "plumb/no-runtime-typeof": "off", // plumb:allow-off decode boundary for config JSON
         "plumb/no-object-parameters": "off", // plumb:allow-off structural reader takes broad node objects
         "plumb/no-unsafe-dictionary-type": "off", // plumb:allow-off record values are the raw payload domain
         "plumb/no-unknown-parameters": "off", // plumb:allow-off reflection input is unknown by definition
         "plumb/no-multiple-function-params": "off", // plumb:allow-off reflection reader takes node+key pairs
-        // plumb:allow-off — bridge-module casts carry JSDoc SAFETY notes
+        // plumb:allow-off: bridge-module casts carry JSDoc SAFETY notes
         "plumb/no-chained-type-assertions": "off", // plumb:allow-off bridge casts documented in JSDoc
         "plumb/require-safety-comment-for-type-assertion": "off", // plumb:allow-off bridge casts documented in JSDoc
       },
@@ -135,7 +135,7 @@ export default defineConfig({
       },
     },
     {
-      // plumb:allow-off — RuleTester adapter typing requires reinterpretation
+      // plumb:allow-off: RuleTester adapter typing requires reinterpretation
       // at the plugin boundary; assertions are confined to these files.
       files: ["src/**/*.test.ts"],
       rules: {

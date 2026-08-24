@@ -48,7 +48,7 @@ export const noExportedMutableStateRule = defineRule({
 			exportedBinding:
 				"`{{name}}` is exported as a mutable binding, so importers can change it under every other consumer and break whatever invariants it carried. Export a `const`.",
 			moduleMutation:
-				"`{{name}}` lives at module scope, so this mutation is invisible shared state across every caller — the blessed-surface-area problem. Make it local, or hold it in explicit state/service passed by parameter.",
+				"`{{name}}` lives at module scope, so this mutation is invisible shared state across every caller: the blessed-surface-area problem. Make it local, or hold it in explicit state/service passed by parameter.",
 		},
 	},
 	createOnce(context) {

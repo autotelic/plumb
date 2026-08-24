@@ -1,9 +1,14 @@
 {
-  "name": "plumb",
+  "name": "@autotelic/plumb",
   "version": "0.3.1",
-  "private": true,
-  "description": "Opinionated Oxlint rules that keep TypeScript true \u2014 generic and Effect-specific patterns, maintained as one source of truth for the autotelic repos.",
+  "description": "Opinionated Oxlint rules that keep TypeScript true: generic and Effect-specific patterns, maintained as one source of truth for the autotelic repos.",
   "license": "MIT",
+  "files": [
+    "src"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "exports": {
     ".": "./src/index.ts",

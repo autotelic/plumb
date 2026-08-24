@@ -33,7 +33,7 @@ export const noDuplicatedLiteralUnionRule = defineRule({
 		},
 		messages: {
 			duplicateUnion:
-				"`{{second}}` declares exactly the variant set of `{{first}}` — two sources of truth that will drift when a member is added to one. Export `{{first}}` and reuse it (or rename if coincidental).",
+				"`{{second}}` declares exactly the variant set of `{{first}}`: two sources of truth that will drift when a member is added to one. Export `{{first}}` and reuse it (or rename if coincidental).",
 		},
 	},
 	createOnce(context) {

@@ -43,7 +43,7 @@ export const noReinterpretCastRule = defineRule({
 			noReinterpret:
 				"Type assertion discards type evidence. Narrow with discriminants/`in` checks or a type predicate instead.",
 			noLaundering:
-				"`{{name}}` exists only to perform a type assertion — a laundering wrapper that hides the cast from review and tooling.",
+				"`{{name}}` exists only to perform a type assertion: a laundering wrapper that hides the cast from review and tooling.",
 		},
 	},
 	createOnce(context) {
