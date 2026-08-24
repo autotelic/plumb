@@ -10,7 +10,12 @@ interface CommentLike {
 	loc?: { start: { line: number } };
 }
 
-/** Documented contract for collectJSDoc. */
+/**
+ * Collect JSDoc-style block comments with their source offsets.
+ *
+ * @param {{ getAllComments: () => CommentLike[]; text: string }} sourceCode - The rule's source-code accessor.
+ * @returns {JSDocComment[]} Block comments paired with their source positions.
+ */
 function collectJSDoc(sourceCode: {
 	getAllComments: () => CommentLike[];
 	text: string;
