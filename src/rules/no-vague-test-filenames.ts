@@ -23,10 +23,10 @@ const VAGUE_STEMS: ReadonlySet<string> = new Set([
 	"lib",
 ]);
 
-/** Documented contract for testFileStem. */
 /** Strip the directory and extension from a test filename.
- * @param filename - The raw filename to process.
- * @returns The bare stem without path or extension. */
+ *
+ * @param {string} filename - The raw filename to process.
+ * @returns {string} The bare stem without path or extension. */
 function testFileStem(filename: string): string {
 	const segments = filename.replaceAll("\\", "/").split("/");
 	const base = segments[segments.length - 1] ?? "";
