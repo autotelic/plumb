@@ -4,19 +4,28 @@ import type { ESTree } from "@oxlint/plugins";
 
 import { ancestorsOf } from "../../shared/ancestors.ts";
 
-import { cast } from "../../shared/structural.ts";
+import { cast, isString, type NodeFieldValue } from "../../shared/structural.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
 
 const BANNED_STORAGE = new Set(["indexedDB", "localStorage", "sessionStorage"]);
 
-/** Discriminant reader for engine nodes the typings leave loose. */
-function typeOf(node: object): string {
+/** Discriminant reader for engine nodes the typings leave loose.
+ *
+ * @param {ESTree.Node} node - The engine node to read.
+ * @returns {string} The node's `type` discriminant.
+ */
+function typeOf(node: ESTree.Node): string {
 	return cast<{ readonly type: string }>(node).type;
 }
 
-/** Documented contract for storageName. */
-function storageName(node: object): string | null {
+/**
+ * The banned-storage global named by an identifier, if any.
+ *
+ * @param {ESTree.Node} node - The identifier node to test.
+ * @returns {string | null} The banned storage name, or null.
+ */
+function storageName(node: ESTree.Node): string | null {
 	if (typeOf(node) !== "Identifier") return null;
 	const name = cast<{ readonly name: string }>(node).name;
 	return BANNED_STORAGE.has(name) ? name : null;
@@ -52,58 +61,63 @@ export const noDirectBrowserStorageRule = defineRule({
 				if (parent === undefined) return;
 				const parentType = typeOf(parent);
 				if (parentType === "MemberExpression") {
-					// Object and plain-property positions are reported once, on the member itself.
 					return;
 				}
 				if (parentType === "ObjectProperty") {
-					const shape = cast<{ readonly key: object; readonly value: object }>(parent);
+					const propertyView = cast<{ readonly key: ESTree.Node; readonly value: ESTree.Node }>(parent);
 					const containerType = grandparent === undefined ? "" : typeOf(grandparent);
 					if (
-						shape.key === node &&
-						shape.value !== node &&
+						propertyView.key === node &&
+						propertyView.value !== node &&
 						containerType !== "ObjectPattern"
 					) {
-						// Literal key position, not a destructured read.
 						return;
 					}
 				}
 				if (parentType === "ImportSpecifier") {
-					const shape = cast<{
-						readonly imported?: object;
-						readonly local?: object;
+					const specifierView = cast<{
+						readonly imported?: ESTree.Node;
+						readonly local?: ESTree.Node;
 					}>(parent);
-					if (shape.imported === node && shape.local !== node) {
-						// Aliased import binds under a different local name.
+					if (specifierView.imported === node && specifierView.local !== node) {
 						return;
 					}
 				}
 				reportStorage(node, name);
 			},
 			MemberExpression(node) {
-				const shape = cast<{
-					readonly object: object;
-					readonly property: object;
+				const memberView = cast<{
+					readonly object: ESTree.Node;
+					readonly property: ESTree.Node;
 					readonly computed?: boolean;
 				}>(node);
-				const direct = storageName(shape.object);
+				const direct = storageName(memberView.object);
 				if (direct !== null) {
 					reportStorage(node, direct);
 					return;
 				}
 				const objectName =
-					typeOf(shape.object) === "Identifier"
-						? cast<{ readonly name: string }>(shape.object).name
+					typeOf(memberView.object) === "Identifier"
+						? cast<{ readonly name: string }>(memberView.object).name
 						: undefined;
 				if (objectName !== "globalThis" && objectName !== "window") return;
-				const propertyName =
-					shape.computed === true
-						? typeOf(shape.property) === "Literal"
-							? cast<{ readonly value?: unknown }>(shape.property).value
-							: undefined
-						: typeOf(shape.property) === "Identifier"
-							? cast<{ readonly name: string }>(shape.property).name
+				let propertyName: NodeFieldValue | undefined;
+				if (memberView.computed === true) {
+					propertyName =
+						typeOf(memberView.property) === "Literal"
+							? cast<{ readonly value?: NodeFieldValue }>(memberView.property).value
 							: undefined;
-				if (typeof propertyName === "string" && BANNED_STORAGE.has(propertyName)) {
+				} else {
+					propertyName =
+						typeOf(memberView.property) === "Identifier"
+							? cast<{ readonly name: string }>(memberView.property).name
+							: undefined;
+				}
+				if (
+					propertyName !== undefined &&
+					isString(propertyName) &&
+					BANNED_STORAGE.has(propertyName)
+				) {
 					reportStorage(node, propertyName);
 				}
 			},
