@@ -7,7 +7,11 @@ const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
 
 const LADDER_THRESHOLD = 3;
 
-/** Whether this call is an Effect combinator chained in the flatMap/map ladder family. */
+/** Whether this call is an Effect combinator chained in the flatMap/map ladder family.
+ *
+ * @param {ESTree.CallExpression} node - The candidate call expression.
+ * @returns {boolean} True when the callee is an Effect flatMap/map-family combinator.
+ */
 function isEffectLadderCombinator(node: ESTree.CallExpression): boolean {
 	const callee = node.callee;
 	if (callee.type !== "MemberExpression" || callee.computed) return false;
