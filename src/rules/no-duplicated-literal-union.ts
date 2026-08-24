@@ -3,7 +3,11 @@ import { defineRule } from "@oxlint/plugins";
 import type { ESTree } from "@oxlint/plugins";
 import { isRecordObject, isString } from "../shared/structural.ts";
 
-/** Sorted string-literal members of a union annotation, or null if it isn't one. */
+/** Sorted string-literal members of a union annotation, or null if it isn't one.
+ *
+ * @param {ESTree.TSType} annotation - The annotation to inspect.
+ * @returns {string[] | null} Sorted literal members, or null when not a literal union.
+ */
 function literalUnionKey(annotation: ESTree.TSType): string[] | null {
 	const types = annotation.type === "TSUnionType" ? annotation.types : [annotation];
 	const literals: string[] = [];
