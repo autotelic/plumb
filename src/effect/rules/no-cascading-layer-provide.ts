@@ -2,43 +2,62 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
 
-import { cast } from "../../shared/structural.ts";
+import { cast, isString, type NodeFieldValue } from "../../shared/structural.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
 
 const PROVISION_METHODS = new Set(["provide", "provideMerge"]);
 
-/** Discriminant reader for engine nodes the typings leave loose. */
-function typeOf(node: object): string {
+/** Discriminant reader for engine nodes the typings leave loose.
+ *
+ * @param {ESTree.Node} node - The engine node to read.
+ * @returns {string} The node's `type` discriminant.
+ */
+function typeOf(node: ESTree.Node): string {
 	return cast<{ readonly type: string }>(node).type;
 }
 
-/** Documented contract for memberName. */
-function memberName(member: object): string | null {
-	const shape = cast<{
+/**
+ * Property name of a member expression, computed or plain.
+ *
+ * @param {ESTree.Node} member - The member expression node.
+ * @returns {string | null} The property name, or null when unavailable.
+ */
+function memberName(member: ESTree.Node): string | null {
+	const memberView = cast<{
 		readonly computed?: boolean;
-		readonly property: object;
+		readonly property: ESTree.Node;
 	}>(member);
-	if (shape.computed === true) {
-		const value = cast<{ readonly value?: unknown }>(shape.property).value;
-		return typeof value === "string" ? value : null;
+	if (memberView.computed === true) {
+		const value = cast<{ readonly value?: NodeFieldValue }>(memberView.property).value;
+		return value !== undefined && isString(value) ? value : null;
 	}
-	return typeOf(shape.property) === "Identifier"
-		? cast<{ readonly name: string }>(shape.property).name
+	return typeOf(memberView.property) === "Identifier"
+		? cast<{ readonly name: string }>(memberView.property).name
 		: null;
 }
 
-/** Documented contract for isLayerProvision. */
-function isLayerProvision(argument: object, layerNames: ReadonlySet<string>): boolean {
+/** Whether an argument is a `<layerVariable>.provide(...)` / provideMerge call.
+ *
+ * @param {ESTree.Node} argument - The pipe argument to inspect.
+ * @param {ReadonlySet<string>} layerNames - Local names bound to the Layer export.
+ * @returns {boolean} True when the argument provisions a layer.
+ */
+function isLayerProvision(argument: ESTree.Node, layerNames: ReadonlySet<string>): boolean {
 	if (typeOf(argument) !== "CallExpression") return false;
-	const callee = cast<{ readonly callee: object }>(argument).callee;
+	const callee = cast<{ readonly callee: ESTree.Node }>(argument).callee;
 	if (typeOf(callee) !== "MemberExpression") return false;
-	const object = cast<{ readonly object: object }>(callee).object;
+	const object = cast<{ readonly object: ESTree.Node }>(callee).object;
 	if (typeOf(object) !== "Identifier") return false;
 	if (!layerNames.has(cast<{ readonly name: string }>(object).name)) return false;
 	return memberName(callee) !== null && PROVISION_METHODS.has(memberName(callee) ?? "");
 }
-/** Multiple provision stages in one pipe entangle dependency tiers; combine independent layers or name each stage. */
+
+/** Multiple provision stages in one pipe entangle dependency tiers; combine independent layers or name each stage.
+ *
+ * Import tracking covers local names bound to the `Layer` export of
+ * "effect"; re-exports are not tracked.
+ */
 export const noCascadingLayerProvideRule = defineRule({
 	meta: {
 		type: "problem",
@@ -52,7 +71,6 @@ export const noCascadingLayerProvideRule = defineRule({
 		},
 	},
 	createOnce(context) {
-		// Local names bound to the `Layer` export of "effect"; re-exports are not tracked.
 		const layerNames = new Set<string>();
 		return {
 			before() {
@@ -61,15 +79,16 @@ export const noCascadingLayerProvideRule = defineRule({
 			ImportDeclaration(node) {
 				const source = cast<{
 					readonly source?: { readonly value?: unknown };
-					readonly specifiers: ReadonlyArray<object>;
+					readonly specifiers: ReadonlyArray<ESTree.Node>;
 				}>(node);
 				if (source.source?.value !== "effect") return;
 				for (const specifier of source.specifiers) {
 					const imported = cast<{
-						readonly imported?: { readonly type: string; readonly name?: string; readonly value?: unknown };
+						readonly imported?: { readonly name?: string; readonly value?: NodeFieldValue };
 					}>(specifier).imported;
 					if (imported === undefined) continue;
-					const importedName = imported.name ?? (typeof imported.value === "string" ? imported.value : undefined);
+					const importedName =
+						imported.name ?? (imported.value !== undefined && isString(imported.value) ? imported.value : undefined);
 					const local = cast<{ readonly local?: { readonly name?: string } }>(specifier).local?.name;
 					if (importedName === "Layer" && local !== undefined) layerNames.add(local);
 				}
@@ -86,7 +105,7 @@ export const noCascadingLayerProvideRule = defineRule({
 				}
 				let stages = 0;
 				for (const argument of node.arguments) {
-					if (isLayerProvision(argument as object, layerNames)) stages += 1;
+					if (isLayerProvision(argument, layerNames)) stages += 1;
 				}
 				if (stages < 2) return;
 				context.report({ node, messageId: "cascadingProvide" });
