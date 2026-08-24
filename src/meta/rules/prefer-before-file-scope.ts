@@ -2,18 +2,25 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
 
-import { isString, type NodeFieldValue } from "../../shared/structural.ts";
+import { isString, readField } from "../../shared/structural.ts";
 
 /**
  * Property-name reader for visitor properties. The `Property` selector receives
  * Object/Binding/AssignmentTarget properties; all share this structural shape.
+ *
+ * @param {{ readonly computed: boolean; readonly key: ESTree.Expression | ESTree.PrivateIdentifier }} node - A visited property node.
+ * @returns {string | null} The non-computed property's identifier or literal string name.
  */
-function propertyName(node: { readonly computed: boolean; readonly key: unknown }): string | null {
+function propertyName(node: {
+	readonly computed: boolean;
+	readonly key: ESTree.Expression | ESTree.PrivateIdentifier;
+}): string | null {
 	if (node.computed) return null;
-	// SAFETY: Property keys are read structurally; the engine guarantees the shape.
-	const key = node.key as { type?: string; name?: NodeFieldValue; value?: NodeFieldValue };
-	if (key?.type === "Identifier" && isString(key.name)) return key.name;
-	if (key?.type === "Literal" && isString(key.value)) return key.value;
+	const key = node.key;
+	const name = readField(key, "name");
+	if (readField(key, "type") === "Identifier" && isString(name)) return name;
+	const value = readField(key, "value");
+	if (readField(key, "type") === "Literal" && isString(value)) return value;
 	return null;
 }
 
