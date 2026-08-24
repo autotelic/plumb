@@ -8,14 +8,6 @@ const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
 
 const ORDERING_OPERATORS = new Set(["<", ">", "<=", ">=", "===", "=="]);
 
-function unwrapParentheses(expression: ESTree.Expression): ESTree.Expression {
-	let current = expression;
-	while (readField<string>(current, "type") === "ParenthesizedExpression") {
-		current = readField<ESTree.Expression>(current, "expression")!;
-	}
-	return current;
-}
-
 function isZeroLiteral(
 	expression: ESTree.Expression | ESTree.PrivateIdentifier | null | undefined,
 ): boolean {
@@ -27,12 +19,20 @@ function isZeroLiteral(
 	);
 }
 
-/** Source text of the operand compared against zero, or null when this is not one. */
-function orderingZeroSubject(
-	test: ESTree.Expression,
-	sourceText: string,
-): string | null {
-	const binary = unwrapParentheses(test);
+/** Source text of the operand compared against zero, or null when this is not one.
+ *
+ * @param {{ test: ESTree.Expression; sourceText: string }} payload - The compared test and its source text.
+ * @returns {string | null} Source text of the non-zero side, or null.
+ */
+function orderingZeroSubject(payload: {
+	test: ESTree.Expression;
+	sourceText: string;
+}): string | null {
+	const { test, sourceText } = payload;
+	let binary = test;
+	while (binary.type === "ParenthesizedExpression") {
+		binary = binary.expression;
+	}
 	if (binary.type !== "BinaryExpression" || !ORDERING_OPERATORS.has(binary.operator)) {
 		return null;
 	}
@@ -104,7 +104,7 @@ export const preferOrderingMatchRule = defineRule({
 				let current: ESTree.ConditionalExpression | null = node;
 				while (current !== null && current.type === "ConditionalExpression") {
 					tests.push({
-						subject: orderingZeroSubject(current.test, context.sourceCode.text),
+						subject: orderingZeroSubject({ test: current.test, sourceText: context.sourceCode.text }),
 						node: current.test,
 					});
 					leaves.push(current.consequent);
@@ -124,7 +124,7 @@ export const preferOrderingMatchRule = defineRule({
 				let current: ESTree.IfStatement | null = node;
 				while (current !== null && current.type === "IfStatement") {
 					tests.push({
-						subject: orderingZeroSubject(current.test, context.sourceCode.text),
+						subject: orderingZeroSubject({ test: current.test, sourceText: context.sourceCode.text }),
 						node: current.test,
 					});
 					const consequent = current.consequent;
