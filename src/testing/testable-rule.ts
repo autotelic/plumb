@@ -12,6 +12,15 @@ export interface TestRunner {
 	itOnly?: (name: string, fn: () => void) => void;
 }
 
+/** Narrow to the createOnce surface the tester adapts.
+ *
+ * @param {Rule} rule - The rule to test.
+ * @returns {boolean} True when the rule carries a createOnce factory.
+ */
+function isCreateOnceRule(rule: Rule): rule is Rule & CreateOnceRule {
+	return "createOnce" in rule;
+}
+
 /** Bind a test runner's hooks to RuleTester's statics.
  *
  * Call once at module scope of a test file (or setup file) before running suites.
@@ -49,12 +58,11 @@ export function createTester(): RuleTester {
  * @returns {Rule} An ESLint-compatible rule with an identical per-file lifecycle.
  */
 export function testableRule(rule: Rule): Rule {
-	if (!("createOnce" in rule)) return rule;
-	const createOnceRule = rule as unknown as CreateOnceRule;
+	if (!isCreateOnceRule(rule)) return rule;
 	const adapter = {
-		meta: createOnceRule.meta,
+		meta: rule.meta,
 		create(context: Parameters<CreateOnceRule["createOnce"]>[0]) {
-			const { after, before, ...visitor } = createOnceRule.createOnce(context);
+			const { after, before, ...visitor } = rule.createOnce(context);
 			// SAFETY: visitor fragments come from this plugin's own createOnce
 			// contract; method keys map one-to-one onto the tester's call shape.
 			const visitors = visitor as VisitorRecord;
