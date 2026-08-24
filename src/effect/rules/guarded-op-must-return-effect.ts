@@ -7,13 +7,11 @@ import { cast } from "../../shared/structural.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
 
-function unwrapParentheses(expression: ESTree.Expression): ESTree.Expression {
-	let current = expression;
-	while (current.type === "ParenthesizedExpression") current = current.expression;
-	return current;
-}
-
-/** Whether the member chain ends in the Option namespace, e.g. `Option` or `O`. */
+/** Whether the member chain ends in the Option namespace, e.g. `Option` or `O`.
+ *
+ * @param {ESTree.Expression | ESTree.Super} node - The callee object to inspect.
+ * @returns {boolean} True when the object resolves to the Option namespace.
+ */
 function isOptionObject(node: ESTree.Expression | ESTree.Super): boolean {
 	if (node.type === "Identifier") return node.name === "Option";
 	if (node.type === "MemberExpression" && !node.computed && node.property.type === "Identifier") {
@@ -22,7 +20,12 @@ function isOptionObject(node: ESTree.Expression | ESTree.Super): boolean {
 	return false;
 }
 
-/** The name of the function whose body contains this node, if determinable. */
+/** The name of the function whose body contains this node, if determinable.
+ *
+ * @param {SourceCode} sourceCode - The rule's source-code accessor.
+ * @param {ESTree.Node} node - The node whose enclosing function is sought.
+ * @returns {string | null} The enclosing function's name, or null.
+ */
 function enclosingFunctionName(sourceCode: SourceCode, node: ESTree.Node): string | null {
 	const chain = ancestorsOf(sourceCode, node);
 	for (let index = chain.length - 1; index >= 0; index--) {
@@ -42,7 +45,12 @@ function enclosingFunctionName(sourceCode: SourceCode, node: ESTree.Node): strin
 	return null;
 }
 
-/** The declared name of the variable a function expression initialises, if any. */
+/** The declared name of the variable a function expression initialises, if any.
+ *
+ * @param {SourceCode} sourceCode - The rule's source-code accessor.
+ * @param {ESTree.Node} node - The function expression node.
+ * @returns {string | null} The initialising declarator's name, or null.
+ */
 function variableDeclaratorName(sourceCode: SourceCode, node: ESTree.Node): string | null {
 	const chain = ancestorsOf(sourceCode, node);
 	for (let index = chain.length - 1; index >= 0; index--) {
@@ -53,14 +61,12 @@ function variableDeclaratorName(sourceCode: SourceCode, node: ESTree.Node): stri
 	return null;
 }
 
-function functionExpressionName(sourceCode: SourceCode, node: ESTree.Node): string | null {
-	// SAFETY: caller narrows to FunctionDeclaration/FunctionExpression before calling.
-	const fn = node as ESTree.Function;
-	if (fn.id?.name) return fn.id.name;
-	return variableDeclaratorName(sourceCode, node);
-}
-
-/** The doctrine binds public APIs: walk up to see if this node is exported. */
+/** The doctrine binds public APIs: walk up to see if this node is exported.
+ *
+ * @param {SourceCode} sourceCode - The rule's source-code accessor.
+ * @param {ESTree.Node} node - The node to test for export ancestry.
+ * @returns {boolean} True when an export declaration encloses the node.
+ */
 function hasExportAncestor(sourceCode: SourceCode, node: ESTree.Node): boolean {
 	const chain = ancestorsOf(sourceCode, node);
 	for (let index = chain.length - 1; index >= 0; index--) {
@@ -71,7 +77,11 @@ function hasExportAncestor(sourceCode: SourceCode, node: ESTree.Node): boolean {
 	return false;
 }
 
-/** A return-type annotation naming Option<T>, e.g. `Option.Option<Account>`. */
+/** A return-type annotation naming Option<T>, e.g. `Option.Option<Account>`.
+ *
+ * @param {ESTree.TSType} type - The type node to inspect.
+ * @returns {string | null} The Option spelling used, or null when not an Option reference.
+ */
 function optionTypeReference(type: ESTree.TSType): string | null {
 	if (type.type !== "TSTypeReference") return null;
 	const name = type.typeName;
@@ -114,9 +124,10 @@ export const guardedOpMustReturnEffectRule = defineRule({
 				if (!hasExportAncestor(context.sourceCode, node)) return;
 				if (enclosingFunctionName(context.sourceCode, node)?.endsWith("Option")) return;
 				const argument = node.argument;
-				if (argument === null || argument === undefined || argument.type !== "CallExpression") return;
-				// SAFETY: argument.type === "CallExpression" was checked above; paren unwrapping preserves the node kind.
-				const call = unwrapParentheses(argument) as ESTree.CallExpression;
+				if (argument === null || argument === undefined) return;
+				let call = argument;
+				while (call.type === "ParenthesizedExpression") call = call.expression;
+				if (call.type !== "CallExpression") return;
 				if (
 					call.callee.type === "MemberExpression" &&
 					call.callee.property.type === "Identifier" &&
@@ -143,7 +154,11 @@ export const guardedOpMustReturnEffectRule = defineRule({
 			},
 			FunctionExpression(node) {
 				if (!hasExportAncestor(context.sourceCode, node)) return;
-				checkFunctionReturn(context, node, functionExpressionName(context.sourceCode, node));
+				checkFunctionReturn(
+					context,
+					node,
+					node.id?.name ?? variableDeclaratorName(context.sourceCode, node),
+				);
 			},
 		};
 	},
@@ -164,33 +179,38 @@ function checkFunctionReturn(
 }
 
 
-/** Search a type node for an embedded Option reference (tuples, arrays, members). */
+/** Search a type node for an embedded Option reference (tuples, arrays, members).
+ *
+ * @param {ESTree.TSType} type - The type node to search.
+ * @returns {string | null} The first embedded Option spelling, or null when none.
+ */
 function findOptionType(type: ESTree.TSType): string | null {
 	const direct = optionTypeReference(type);
 	if (direct !== null) return direct;
 	switch (type.type) {
-		case "TSTupleType":
+		case "TSTupleType": {
+			const render = (element: ESTree.TSTupleElement): string | null => {
+				if ("elementType" in element) return render(element.elementType);
+				if (element.type === "TSOptionalType" || element.type === "TSRestType") {
+					return findOptionType(element.typeAnnotation);
+				}
+				return findOptionType(element);
+			};
 			for (const element of type.elementTypes) {
-				// SAFETY: TSTupleElement is either a named member carrying elementType or a bare TSType.
-				const payload =
-					cast<{ elementType?: ESTree.TSType }>(element).elementType ?? cast<ESTree.TSType>(element);
-				const found = findOptionType(payload);
+				const found = render(element);
 				if (found !== null) return found;
 			}
 			return null;
-		case "TSTypeOperator": {
-			// SAFETY: oxc exposes the operand as typeAnnotation; the annotation alias is legacy.
-			const operand = cast<{ typeAnnotation?: ESTree.TSType }>(type).typeAnnotation;
-			return operand === undefined || operand === null ? null : findOptionType(operand);
 		}
+		case "TSTypeOperator":
+			return findOptionType(type.typeAnnotation);
 		case "TSArrayType":
 			return findOptionType(type.elementType);
 		case "TSTypeLiteral":
 			for (const member of type.members) {
 				if (member.type !== "TSPropertySignature") continue;
-				const annotation = cast<{ typeAnnotation?: ESTree.TSType } | undefined>(member.typeAnnotation)
-					?.typeAnnotation;
-				if (annotation === undefined) continue;
+				const annotation = member.typeAnnotation?.typeAnnotation;
+				if (annotation === undefined || annotation === null) continue;
 				const found = findOptionType(annotation);
 				if (found !== null) return found;
 			}
@@ -200,20 +220,19 @@ function findOptionType(type: ESTree.TSType): string | null {
 	}
 }
 
-/** A return-type annotation hiding an Option anywhere: unions, tuples, arrays, members. */
+/** A return-type annotation hiding an Option anywhere: unions, tuples, arrays, members.
+ *
+ * @param {ESTree.TSType} annotation - The return-type annotation to search.
+ * @returns {string | null} The Option spelling found, or null when none.
+ */
 function optionInReturnType(annotation: ESTree.TSType): string | null {
-	return findOptionType(unwrapReturnType(annotation));
-}
-
-
-function unwrapReturnType(annotation: ESTree.TSType): ESTree.TSType {
 	let current = annotation;
 	while (current.type === "TSParenthesizedType") current = current.typeAnnotation;
 	if (current.type === "TSUnionType") {
 		for (const member of current.types) {
 			const found = optionTypeReference(member);
-			if (found !== null) return member;
+			if (found !== null) return found;
 		}
 	}
-	return current;
+	return findOptionType(current);
 }
