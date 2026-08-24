@@ -30,7 +30,6 @@ export const requireDeprecatedTagForLegacyCommentsRule = defineRule({
 	createOnce(context) {
 		return {
 			Program(node) {
-				// SAFETY: getAllComments returns engine comment objects matching CommentLike.
 				for (const comment of getAllComments(context.sourceCode)) {
 					if (comment.type !== "Block") continue;
 					if (!LEGACY_PROSE.test(comment.value)) continue;
