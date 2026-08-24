@@ -1,7 +1,6 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
-import { cast } from "../../shared/structural.ts";
 import { readField } from "../../shared/structural.ts";
 import { ancestorsOf } from "../../shared/ancestors.ts";
 
@@ -26,8 +25,14 @@ function tupleElementType(element: ESTree.TSTupleElement): ESTree.TSType {
  * @returns {boolean} True when the return annotation mentions Effect or Either.
  */
 function returnsEffectOrFailChannel(node: ESTree.Node): boolean {
-	const fn = cast<{ returnType?: { typeAnnotation?: ESTree.TSType } }>(node);
-	const annotation = fn.returnType?.typeAnnotation;
+	if (
+		node.type !== "FunctionDeclaration" &&
+		node.type !== "FunctionExpression" &&
+		node.type !== "ArrowFunctionExpression"
+	) {
+		return false;
+	}
+	const annotation = node.returnType?.typeAnnotation;
 	if (annotation === undefined) return false;
 	const seen: Array<ESTree.TSType> = [annotation];
 	while (seen.length > 0) {
