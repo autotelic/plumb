@@ -1,7 +1,8 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
-import { cast, readField } from "../shared/structural.ts";
+import { readField } from "../shared/structural.ts";
+import { ancestorsOf } from "../shared/ancestors.ts";
 
 function lastTypeNameSegment(typeName: ESTree.Node): string | null {
 	if (typeName.type === "Identifier") return typeName.name;
@@ -55,7 +56,7 @@ export const noProductOfStateBooleansRule = defineRule({
 			TSTypeLiteral(node) {
 				const signature = variantPayloadSignature(
 					node,
-					cast<ReadonlyArray<ESTree.Node>>(context.sourceCode.getAncestors(node)),
+					ancestorsOf(context.sourceCode, node),
 				);
 				if (signature === null) return;
 				let count = 0;
