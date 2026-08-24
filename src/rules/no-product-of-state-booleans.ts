@@ -13,6 +13,10 @@ function lastTypeNameSegment(typeName: ESTree.Node): string | null {
  * Returns the enclosing TSPropertySignature when the literal is a variant
  * payload of a Data.TaggedEnum (i.e. `{ Variant: Payload }` inside the enum's
  * type argument), otherwise null.
+ *
+ * @param {ESTree.TSTypeLiteral} node - The visited type literal (candidate payload).
+ * @param {ReadonlyArray<ESTree.Node>} ancestors - Nearest-first ancestor chain of `node`.
+ * @returns {ESTree.TSPropertySignature | null} The variant property signature, or null.
  */
 function variantPayloadSignature(
 	node: ESTree.TSTypeLiteral,
@@ -31,17 +35,6 @@ function variantPayloadSignature(
 	if (reference?.type !== "TSTypeReference") return null;
 	const name = lastTypeNameSegment(reference.typeName);
 	return name !== null && /TaggedEnum$/u.test(name) ? signature : null;
-}
-
-function booleanMemberCount(node: ESTree.TSTypeLiteral): number {
-	let count = 0;
-	for (const member of node.members) {
-		if (member.type !== "TSPropertySignature") continue;
-		const annotation = member.typeAnnotation;
-		if (annotation === null || annotation === undefined) continue;
-		if (annotation.typeAnnotation.type === "TSBooleanKeyword") count += 1;
-	}
-	return count;
 }
 
 /** A product of booleans inside a variant tends to admit an illegal combination. */
@@ -65,7 +58,13 @@ export const noProductOfStateBooleansRule = defineRule({
 					cast<ReadonlyArray<ESTree.Node>>(context.sourceCode.getAncestors(node)),
 				);
 				if (signature === null) return;
-				const count = booleanMemberCount(node);
+				let count = 0;
+				for (const member of node.members) {
+					if (member.type !== "TSPropertySignature") continue;
+					const annotation = member.typeAnnotation;
+					if (annotation === null || annotation === undefined) continue;
+					if (annotation.typeAnnotation.type === "TSBooleanKeyword") count += 1;
+				}
 				if (count < 2) return;
 				const key = signature.key;
 				const name = key.type === "Identifier" ? key.name : "variant";
