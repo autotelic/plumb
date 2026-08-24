@@ -1,59 +1,62 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree, Scope, SourceCode, Variable } from "@oxlint/plugins";
-import { cast, readField } from "../shared/structural.ts";
+import { cast } from "../shared/structural.ts";
+
+import { ancestorsOf } from "../shared/ancestors.ts";
 
 const moduleMockMethods = new Set(["doMock", "mock", "unstable_mockModule"]);
 
-function resolveVariable(
-  sourceCode: SourceCode,
-  identifier: ESTree.IdentifierReference,
-): Variable | null {
+/**
+ * Whether a callee invokes a test framework's module mocking API
+ * (`vi.doMock`, `jest.mock`, `vi.unstable_mockModule`), either through the
+ * global or through a binding imported from vitest / @jest/globals.
+ *
+ * @param {SourceCode} sourceCode - The rule's source-code accessor.
+ * @param {ESTree.Expression} callee - The visited call expression's callee.
+ * @returns {boolean} True when the call mocks a module.
+ */
+function moduleMockCall(sourceCode: SourceCode, callee: ESTree.Expression): boolean {
+  if (callee.type !== "MemberExpression") return false;
+  if (callee.object.type !== "Identifier") return false;
+  const identifier = callee.object;
+
+  let resolved: Variable | null = null;
   let scope: Scope | null = sourceCode.getScope(identifier);
   while (scope !== null) {
     const variable = scope.set.get(identifier.name);
-    if (variable !== undefined) return variable;
+    if (variable !== undefined) {
+      resolved = variable;
+      break;
+    }
     scope = scope.upper;
   }
-  return null;
-}
-
-function importedName(node: ESTree.Node): string | null {
-  if (node.type !== "ImportSpecifier") return null;
-  return node.imported.type === "Identifier" ? node.imported.name : node.imported.value;
-}
-
-function isTestFrameworkObject(
-  sourceCode: SourceCode,
-  expression: ESTree.Expression,
-): expression is ESTree.IdentifierReference {
-  if (expression.type !== "Identifier") return false;
-  if (
-    (expression.name === "vi" || expression.name === "jest") &&
-    sourceCode.isGlobalReference(expression)
-  ) {
-    return true;
+  const isTestFrameworkName = identifier.name === "vi" || identifier.name === "jest";
+  let boundToFramework: boolean;
+  if (resolved === null || resolved.defs.length === 0) {
+    boundToFramework =
+      (isTestFrameworkName && sourceCode.isGlobalReference(identifier)) || isTestFrameworkName;
+  } else {
+    boundToFramework = resolved.defs.some((definition: Variable["defs"][number]) => {
+      if (definition.type !== "ImportBinding") return false;
+      const importDeclaration = ancestorsOf(sourceCode, definition.node).at(-1);
+      if (importDeclaration?.type !== "ImportDeclaration") return false;
+      const source = importDeclaration.source.value;
+      const specifier = definition.node;
+      const importedName =
+        specifier.type === "ImportSpecifier"
+          ? specifier.imported.type === "Identifier"
+            ? specifier.imported.name
+            : specifier.imported.value
+          : null;
+      return (
+        (source === "vitest" && importedName === "vi") ||
+        (source === "@jest/globals" && importedName === "jest")
+      );
+    });
   }
+  if (!boundToFramework) return false;
 
-  const variable = resolveVariable(sourceCode, expression);
-  if (variable === null || variable.defs.length === 0) {
-    return expression.name === "vi" || expression.name === "jest";
-  }
-  return variable.defs.some((definition) => {
-    if (definition.type !== "ImportBinding") return false;
-    const importDeclaration = (cast<ReadonlyArray<ESTree.Node>>(sourceCode.getAncestors(definition.node))).at(-1);
-    if (importDeclaration?.type !== "ImportDeclaration") {
-      return false;
-    }
-    const source = importDeclaration.source.value;
-    const name = importedName(definition.node);
-    return (source === "vitest" && name === "vi") || (source === "@jest/globals" && name === "jest");
-  });
-}
-
-function moduleMockCall(sourceCode: SourceCode, callee: ESTree.Expression): boolean {
-  if (!("property" in callee) || !("object" in callee) || !("computed" in callee)) return false;
-  if (!isTestFrameworkObject(sourceCode, callee.object)) return false;
   const property = callee.property;
   const method = callee.computed
     ? property.type === "Literal" &&
