@@ -24,8 +24,8 @@ function sentinelValue(expression: ESTree.Expression): number | null {
 }
 
 /** True when every leaf of an expression tree is one of the ordering sentinels.
- * @param expression - Candidate expression to inspect.
- * @returns True when the expression (or both conditional branches) are sentinels. */
+ * @param {ESTree.Expression} expression - Candidate expression to inspect.
+ * @returns {boolean} True when the expression (or both conditional branches) are sentinels. */
 function chainIsSentinel(expression: ESTree.Expression): boolean {
 	if (sentinelValue(expression) !== null) return true;
 	if (expression.type === "ConditionalExpression") {
@@ -58,9 +58,9 @@ function hasOrderingComparison(expression: ESTree.Expression): boolean {
 }
 
 /** True when the conditional is nested under a larger sentinel chain already reported at its root.
- * @param node - The conditional being checked.
- * @param ancestors - Nearest-first ancestor chain from the traversal engine.
- * @returns True when an enclosing conditional already forms a reported sentinel chain. */
+ * @param {ESTree.ConditionalExpression} node - The conditional being checked.
+ * @param {ReadonlyArray<ESTree.Node>} ancestors - Nearest-first ancestor chain from the traversal engine.
+ * @returns {boolean} True when an enclosing conditional already forms a reported sentinel chain. */
 function coveredByOuterSentinelChain(node: ESTree.ConditionalExpression, ancestors: ReadonlyArray<ESTree.Node>): boolean {
 	for (let index = ancestors.length - 1; index >= 0; index--) {
 		const current = ancestors[index]!;
@@ -91,8 +91,8 @@ function asSingleReturnSentinel(statement: ESTree.Statement): boolean {
 }
 
 /** True when an if/else-if/else chain returns only ordering sentinels from every branch.
- * @param node - The root if-statement of the chain.
- * @returns True when every branch returns a sentinel comparison. */
+ * @param {ESTree.IfStatement} node - The root if-statement of the chain.
+ * @returns {boolean} True when every branch returns a sentinel comparison. */
 function ifChainIsSentinel(node: ESTree.IfStatement): boolean {
 	let branch: ESTree.IfStatement | null = node;
 	while (branch !== null) {
@@ -106,25 +106,6 @@ function ifChainIsSentinel(node: ESTree.IfStatement): boolean {
 		return asSingleReturnSentinel(alternate);
 	}
 	return false;
-}
-
-function chainConditions(node: ESTree.IfStatement): ESTree.Expression[] {
-	const conditions = [node.test];
-	let branch: ESTree.Statement | null = node.alternate;
-	while (branch !== null) {
-		if (branch.type === "IfStatement") {
-			conditions.push(branch.test);
-			branch = branch.alternate;
-		} else {
-			break;
-		}
-	}
-	return conditions;
-}
-
-function isElseIfBranch(node: ESTree.IfStatement, ancestors: ReadonlyArray<ESTree.Node>): boolean {
-	const parent = ancestors.at(-1);
-	return parent?.type === "IfStatement" && parent.alternate === node;
 }
 
 /** Ban hand-built -1/0/1 comparison results; ordering must go through a named order. */
@@ -149,9 +130,17 @@ export const noSentinelComparisonUnionRule = defineRule({
 				context.report({ node, messageId: "sentinelComparisonUnion" });
 			},
 			IfStatement(node) {
-				if (isElseIfBranch(node, ancestorsOf(context.sourceCode, node))) return;
+				const parent = ancestorsOf(context.sourceCode, node).at(-1);
+				if (parent?.type === "IfStatement" && parent.alternate === node) return;
 				if (!ifChainIsSentinel(node)) return;
-				if (!chainConditions(node).some(hasOrderingComparison)) return;
+				const conditions = [node.test];
+				let branch: ESTree.Statement | null = node.alternate;
+				while (branch !== null) {
+					if (branch.type !== "IfStatement") break;
+					conditions.push(branch.test);
+					branch = branch.alternate;
+				}
+				if (!conditions.some(hasOrderingComparison)) return;
 				context.report({ node, messageId: "sentinelComparisonUnion" });
 			},
 		};
