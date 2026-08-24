@@ -2,8 +2,6 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
 
-import { cast } from "../../shared/structural.ts";
-
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
 
 const CATCH_METHODS = new Set([
@@ -16,15 +14,6 @@ const CATCH_METHODS = new Set([
 
 const VOID_OR_UNIT_METHODS = new Set(["void", "unit"]);
 
-/** Discriminant reader for engine nodes the typings leave loose.
- *
- * @param {ESTree.Node} node - The engine node to read.
- * @returns {string} The node's `type` discriminant.
- */
-function typeOf(node: ESTree.Node): string {
-	return cast<{ readonly type: string }>(node).type;
-}
-
 /**
  * Whether the expression is the bare `Effect.void` / `Effect.unit` member.
  *
@@ -32,15 +21,9 @@ function typeOf(node: ESTree.Node): string {
  * @returns {boolean} True when the expression reads Effect.void or Effect.unit.
  */
 function isEffectVoidOrUnit(node: ESTree.Node | null | undefined): boolean {
-	if (node === null || node === undefined) return false;
-	if (typeOf(node) !== "MemberExpression") return false;
-	const member = cast<{ readonly object: ESTree.Node; readonly property: ESTree.Node }>(node);
-	return (
-		typeOf(member.object) === "Identifier" &&
-		cast<{ readonly name: string }>(member.object).name === "Effect" &&
-		typeOf(member.property) === "Identifier" &&
-		VOID_OR_UNIT_METHODS.has(cast<{ readonly name: string }>(member.property).name)
-	);
+	if (node === null || node === undefined || node.type !== "MemberExpression") return false;
+	if (node.object.type !== "Identifier" || node.object.name !== "Effect") return false;
+	return node.property.type === "Identifier" && VOID_OR_UNIT_METHODS.has(node.property.name);
 }
 
 /**
@@ -50,16 +33,20 @@ function isEffectVoidOrUnit(node: ESTree.Node | null | undefined): boolean {
  * @returns {boolean} True when the handler can only produce Effect.void/unit.
  */
 function returnsOnlyVoid(handler: ESTree.Node): boolean {
-	const kind = typeOf(handler);
-	if (kind !== "ArrowFunctionExpression" && kind !== "FunctionExpression") return false;
-	const body = cast<{ readonly body: ESTree.Node }>(handler).body;
+	if (
+		handler.type !== "ArrowFunctionExpression" &&
+		handler.type !== "FunctionExpression"
+	) {
+		return false;
+	}
+	const body = handler.body;
+	if (body === null || body === undefined) return false;
 	if (isEffectVoidOrUnit(body)) return true;
-	if (typeOf(body) !== "BlockStatement") return false;
-	const statements = cast<{ readonly body: ReadonlyArray<ESTree.Node> }>(body).body;
-	if (statements.length !== 1) return false;
-	const statement = statements[0]!;
-	if (typeOf(statement) !== "ReturnStatement") return false;
-	return isEffectVoidOrUnit(cast<{ readonly argument?: ESTree.Node | null }>(statement).argument ?? null);
+	if (body.type !== "BlockStatement") return false;
+	if (body.body.length !== 1) return false;
+	const statement = body.body[0]!;
+	if (statement.type !== "ReturnStatement") return false;
+	return isEffectVoidOrUnit(statement.argument);
 }
 
 /** Recovering into Effect.void/Effect.unit erases the failure; recover meaningfully or propagate. */
@@ -84,7 +71,7 @@ export const noSilentErrorSwallowRule = defineRule({
 				const callee = node.callee;
 				if (
 					callee.type !== "MemberExpression" ||
-					callee.computed === true ||
+					callee.computed ||
 					callee.object.type !== "Identifier" ||
 					callee.object.name !== "Effect" ||
 					callee.property.type !== "Identifier" ||
@@ -97,13 +84,10 @@ export const noSilentErrorSwallowRule = defineRule({
 						context.report({ node, messageId: "silentSwallow" });
 						return;
 					}
-					if (typeOf(argument) !== "ObjectExpression") continue;
-					const properties = cast<{
-						readonly properties: ReadonlyArray<ESTree.Node>
-					}>(argument).properties;
-					for (const property of properties) {
-						const value = cast<{ readonly value?: ESTree.Node }>(property).value;
-						if (value !== undefined && returnsOnlyVoid(value)) {
+					if (argument.type !== "ObjectExpression") continue;
+					for (const property of argument.properties) {
+						if (property.type !== "Property") continue;
+						if (returnsOnlyVoid(property.value)) {
 							context.report({ node, messageId: "silentSwallow" });
 							return;
 						}
