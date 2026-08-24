@@ -64,5 +64,5 @@ export function memberExpression(computed: boolean, propertyName_: string): ESTr
 }
 
 export const identifiers: fc.Arbitrary<string> = fc
-	.stringMatching(/^[a-zA-Z_$][a-zA-Z0-9_$]{0,7}$/)
+	.stringMatching(/^[a-zA-Z_$][a-zA-Z0-9_$]{0,7}$/u)
 	.filter((s) => !["const", "let", "var", "function", "class"].includes(s));
