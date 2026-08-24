@@ -1,59 +1,8 @@
 import { defineRule } from "@oxlint/plugins";
 import type { ESTree } from "@oxlint/plugins";
-import { cast, readField } from "../shared/structural.ts";
+import { cast } from "../shared/structural.ts";
 
 type TypeAssertionExpression = ESTree.TSAsExpression | ESTree.TSTypeAssertion;
-
-function isTypeAssertionExpression(node: ESTree.Node): node is TypeAssertionExpression {
-  return node.type === "TSAsExpression" || node.type === "TSTypeAssertion";
-}
-
-function unwrapParenthesizedExpression(expression: ESTree.Expression): ESTree.Expression {
-  let current = expression;
-  while (current.type === "ParenthesizedExpression") {
-    current = current.expression;
-  }
-  return current;
-}
-
-function isConstAssertion(node: TypeAssertionExpression): boolean {
-  const { typeAnnotation } = node;
-  return (
-    typeAnnotation.type === "TSTypeReference" &&
-    typeAnnotation.typeName.type === "Identifier" &&
-    typeAnnotation.typeName.name === "const"
-  );
-}
-
-function isOutermostAssertionInChain(node: TypeAssertionExpression, ancestors: ReadonlyArray<ESTree.Node>): boolean {
-  let current: ESTree.Expression = node;
-
-  let index = ancestors.length - 1;
-  while (index >= 0) {
-    const parent = ancestors[index]!;
-    if (parent.type !== "ParenthesizedExpression" || parent.expression !== current) break;
-    current = cast<ESTree.Expression>(parent);
-    index -= 1;
-  }
-
-  const outermost = ancestors[index];
-  if (outermost === undefined) return true;
-  return !isTypeAssertionExpression(outermost) || outermost.expression !== current;
-}
-
-function isForbiddenAssertionChain(node: TypeAssertionExpression): boolean {
-  let assertionCount = 0;
-  let hasNonConstAssertion = false;
-  let current: ESTree.Expression = node;
-
-  while (isTypeAssertionExpression(current)) {
-    assertionCount += 1;
-    hasNonConstAssertion ||= !isConstAssertion(current);
-    current = unwrapParenthesizedExpression(current.expression);
-  }
-
-  return assertionCount > 1 && hasNonConstAssertion;
-}
 
 /** Disallow nested TypeScript type assertions, while permitting chains made only of const assertions. */
 export const noChainedTypeAssertionsRule = defineRule({
@@ -70,12 +19,44 @@ export const noChainedTypeAssertionsRule = defineRule({
   },
   createOnce(context) {
     const checkTypeAssertion = (node: TypeAssertionExpression) => {
+      const ancestors = cast<ReadonlyArray<ESTree.Node>>(
+        context.sourceCode.getAncestors(node),
+      );
+
+      let current: ESTree.Expression = node;
+      let index = ancestors.length - 1;
+      while (index >= 0) {
+        const parent = ancestors[index]!;
+        if (parent.type !== "ParenthesizedExpression" || parent.expression !== current) break;
+        current = parent;
+        index -= 1;
+      }
+      const outermost = ancestors[index];
       if (
-        !isOutermostAssertionInChain(node, cast<ReadonlyArray<ESTree.Node>>(context.sourceCode.getAncestors(node))) ||
-        !isForbiddenAssertionChain(node)
- )
+        outermost !== undefined &&
+        (outermost.type === "TSAsExpression" || outermost.type === "TSTypeAssertion") &&
+        outermost.expression === current
+      )
         return;
-      context.report({ node, messageId: "chained" });
+
+      let assertionCount = 0;
+      let hasNonConstAssertion = false;
+      current = node;
+      while (current.type === "TSAsExpression" || current.type === "TSTypeAssertion") {
+        assertionCount += 1;
+        const { typeAnnotation } = current;
+        hasNonConstAssertion ||= !(
+          typeAnnotation.type === "TSTypeReference" &&
+          typeAnnotation.typeName.type === "Identifier" &&
+          typeAnnotation.typeName.name === "const"
+        );
+        let next: ESTree.Expression = current.expression;
+        while (next.type === "ParenthesizedExpression") next = next.expression;
+        current = next;
+      }
+      if (assertionCount > 1 && hasNonConstAssertion) {
+        context.report({ node, messageId: "chained" });
+      }
     };
 
     return {
