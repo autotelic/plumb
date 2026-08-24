@@ -51,49 +51,14 @@ const typeNodeKinds: ReadonlySet<string> = new Set([
 	"TSVoidKeyword",
 ]);
 
+/**
+ * Whether a node is one of the grammar's type-node kinds.
+ *
+ * @param {ESTree.Node} node - The ancestor node to test.
+ * @returns {boolean} True when the node is a type node.
+ */
 function isTypeNode(node: ESTree.Node): node is ESTree.TSType {
 	return typeNodeKinds.has(node.type);
-}
-
-function typeReferenceName(type: ESTree.TSTypeReference): string | null {
-	return type.typeName.type === "Identifier" ? type.typeName.name : null;
-}
-
-function isInsideTypeAliasDeclaration(sourceCode: SourceCode, node: ESTree.Node): boolean {
-	const ancestors = ancestorsOf(sourceCode, node);
-	for (let index = ancestors.length - 1; index >= 0; index--) {
-		const current = ancestors[index]!;
-		if (current.type === "Program") break;
-		if (current.type === "TSTypeAliasDeclaration") return true;
-	}
-	return false;
-}
-
-function isPlainAliasConsumerUse(
-	node: ESTree.TSType,
-	environment: TypeEnvironment,
-	sourceCode: SourceCode,
-): boolean {
-	if (node.type !== "TSTypeReference" || node.typeArguments?.params.length) return false;
-	const name = typeReferenceName(node);
-	return name !== null && environment.aliases.has(name) && !isInsideTypeAliasDeclaration(sourceCode, node);
-}
-
-function shouldReportType(
-	node: ESTree.TSType,
-	environment: TypeEnvironment,
-	sourceCode: SourceCode,
-): boolean {
-	if (isPlainAliasConsumerUse(node, environment, sourceCode)) return false;
-	if (classifyUnsafeDictionary(node, environment) === null) return false;
-	const ancestors = ancestorsOf(sourceCode, node);
-	for (let index = ancestors.length - 1; index >= 0; index--) {
-		const current = ancestors[index]!;
-		if (current.type === "Program") break;
-		if (isTypeNode(current) && classifyUnsafeDictionary(current, environment) !== null)
-			return false;
-	}
-	return true;
 }
 
 /** Disallow object-dictionary contracts whose direct value type is an unsafe escape hatch. */
@@ -115,9 +80,30 @@ export const noUnsafeDictionaryTypeRule = defineRule({
 			context.report({ node, messageId: "unsafeDictionary", data: { value } });
 		};
 		const reportIfUnsafe = (node: ESTree.TSType) => {
-			if (environment === null || !shouldReportType(node, environment, context.sourceCode)) return;
+			if (environment === null) return;
+
+			if (node.type === "TSTypeReference" && !node.typeArguments?.params.length) {
+				const aliasName =
+					node.typeName.type === "Identifier" ? node.typeName.name : null;
+				if (aliasName !== null && environment.aliases.has(aliasName)) {
+					let insideAliasDeclaration = false;
+					for (const current of ancestorsOf(context.sourceCode, node)) {
+						if (current.type === "Program") break;
+						if (current.type === "TSTypeAliasDeclaration") {
+							insideAliasDeclaration = true;
+							break;
+						}
+					}
+					if (!insideAliasDeclaration) return;
+				}
+			}
+
 			const unsafe = classifyUnsafeDictionary(node, environment);
 			if (unsafe === null) return;
+			for (const current of ancestorsOf(context.sourceCode, node)) {
+				if (current.type === "Program") break;
+				if (isTypeNode(current) && classifyUnsafeDictionary(current, environment) !== null) return;
+			}
 			report(node, unsafe.unsafeValue);
 		};
 
