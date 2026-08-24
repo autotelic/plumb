@@ -3,7 +3,12 @@ import type { ESTree } from "@oxlint/plugins";
 
 const FORBIDDEN_SYMBOL_NAME = "shape";
 
-/** Documented contract for containsForbiddenSymbolName. */
+/**
+ * Whether a symbol name contains the forbidden substring.
+ *
+ * @param {string} name - The symbol name to inspect.
+ * @returns {boolean} True when the name contains the forbidden term.
+ */
 function containsForbiddenSymbolName(name: string): boolean {
   return name.toLowerCase().includes(FORBIDDEN_SYMBOL_NAME);
 }
