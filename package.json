@@ -20,7 +20,7 @@
     "check:config": "node scripts/check-config.mjs"
   },
   "dependencies": {
-    "@oxlint/plugins": "1.78.0"
+    "@oxlint/plugins": "1.79.0"
   },
   "devDependencies": {
     "@types/node": "24.13.3",
