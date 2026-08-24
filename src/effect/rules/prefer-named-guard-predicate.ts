@@ -9,7 +9,29 @@ const PREDICATE_NAME = /^is[A-Z]/u;
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
 
-function isDomainPredicateCall(expression: ESTree.Expression): boolean {
+/** True for a logical chain (>= 2 operands) whose every leaf is a domain-predicate call.
+ *
+ * @param {ESTree.Expression} expression - The guard test expression.
+ * @returns {boolean} True when the chain is composed of domain predicates only.
+ */
+function isPredicateChain(expression: ESTree.Expression): boolean {
+	if (expression.type !== "LogicalExpression") return false;
+	return chainLeaf(expression.left) && chainLeaf(expression.right);
+}
+
+/**
+ * Whether a leaf expression is a domain predicate call, not an Option combinator.
+ *
+ * @param {ESTree.Expression} expression - The leaf expression to test.
+ * @returns {boolean} True when the callee matches the domain predicate naming scheme.
+ */
+function chainLeaf(expression: ESTree.Expression): boolean {
+	if (expression.type === "LogicalExpression") {
+		return chainLeaf(expression.left) && chainLeaf(expression.right);
+	}
+	if (readField<string>(expression, "type") === "ParenthesizedExpression") {
+		return chainLeaf(cast<{ expression: ESTree.Expression }>(expression).expression);
+	}
 	if (expression.type !== "CallExpression") return false;
 	const callee = expression.callee;
 	if (
@@ -27,23 +49,11 @@ function isDomainPredicateCall(expression: ESTree.Expression): boolean {
 	);
 }
 
-/** True for a logical chain (>= 2 operands) whose every leaf is a domain-predicate call. */
-function isPredicateChain(expression: ESTree.Expression): boolean {
-	if (expression.type !== "LogicalExpression") return false;
-	return chainLeaf(expression.left) && chainLeaf(expression.right);
-}
-
-function chainLeaf(expression: ESTree.Expression): boolean {
-	if (expression.type === "LogicalExpression") {
-		return chainLeaf(expression.left) && chainLeaf(expression.right);
-	}
-	if (readField<string>(expression, "type") === "ParenthesizedExpression") {
-		return chainLeaf(cast<{ expression: ESTree.Expression }>(expression).expression);
-	}
-	return isDomainPredicateCall(expression);
-}
-
-/** True when the subtree produces an Option.none()/Option.some(...) result. */
+/** True when the subtree produces an Option.none()/Option.some(...) result.
+ *
+ * @param {ESTree.Node | null | undefined} node - The subtree root to scan.
+ * @returns {boolean} True when an Option constructor call appears in the subtree.
+ */
 function containsOptionResult(node: ESTree.Node | null | undefined): boolean {
 	if (node === null || node === undefined) return false;
 	if (
