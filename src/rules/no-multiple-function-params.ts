@@ -33,22 +33,26 @@ interface FunctionLike {
 	readonly params: ReadonlyArray<ESTree.ParamPattern>;
 }
 
-/** Discriminant reader for engine nodes the typings leave loose. */
-function typeOf(node: object): string {
+/** Discriminant reader for engine nodes the typings leave loose.
+ *
+ * @param {ESTree.Node} node - The engine node to read.
+ * @returns {string} The node's `type` discriminant.
+ */
+function typeOf(node: ESTree.Node): string {
 	return cast<{ readonly type: string }>(node).type;
 }
 
-function basename(filename: string): string {
-	const normalized = filename.replaceAll("\\", "/");
-	const segments = normalized.split("/");
-	return segments[segments.length - 1] ?? normalized;
-}
-
-function parentOf(sourceCode: SourceCode, node: ESTree.Node): object | null {
+function parentOf(sourceCode: SourceCode, node: ESTree.Node): ESTree.Node | null {
 	return ancestorsOf(sourceCode, node)[0] ?? null;
 }
 
-/** Functions the module owns: declarations and named bindings, not callbacks. */
+/**
+ * Functions the module owns: declarations and named bindings, not callbacks.
+ *
+ * @param {SourceCode} sourceCode - The rule's source-code accessor.
+ * @param {ESTree.Node} node - The visited function-like node.
+ * @returns {boolean} True when the module owns the function's arity.
+ */
 function isOwnedFunction(sourceCode: SourceCode, node: ESTree.Node): boolean {
 	if (typeOf(node) === "FunctionDeclaration") return true;
 	const parent = parentOf(sourceCode, node);
@@ -73,34 +77,24 @@ interface ResolvedOptions {
 	routeBasenames: ReadonlySet<string>;
 }
 
-/** Exported HTTP-method-named handlers in framework route files own their arity. */
-function isExemptRouteHandler(
-	options: ResolvedOptions,
-	filename: string,
-	sourceCode: SourceCode,
-	node: ESTree.Node,
-): boolean {
-	if (typeOf(node) !== "FunctionDeclaration") return false;
-	const name = cast<{ readonly id?: { readonly name: string } | null }>(node).id?.name;
-	if (name === undefined || !options.methodNames.has(name)) return false;
-	if (!options.routeBasenames.has(basename(filename))) return false;
-	const parent = parentOf(sourceCode, node);
+/**
+ * Exported HTTP-method-named handlers in framework route files own their arity.
+ *
+ * @param {{ options: ResolvedOptions; baseName: string; sourceCode: SourceCode; node: ESTree.Node }} payload - Exemption inputs.
+ * @returns {boolean} True when the handler is an exempt route handler.
+ */
+function isExemptRouteHandler(payload: {
+	options: ResolvedOptions;
+	baseName: string;
+	sourceCode: SourceCode;
+	node: ESTree.Node;
+}): boolean {
+	if (typeOf(payload.node) !== "FunctionDeclaration") return false;
+	const name = cast<{ readonly id?: { readonly name: string } | null }>(payload.node).id?.name;
+	if (name === undefined || !payload.options.methodNames.has(name)) return false;
+	if (!payload.options.routeBasenames.has(payload.baseName)) return false;
+	const parent = parentOf(payload.sourceCode, payload.node);
 	return parent !== null && typeOf(parent) === "ExportNamedDeclaration";
-}
-
-function displayName(sourceCode: SourceCode, node: ESTree.Node): string {
-	const declared = cast<{ readonly id?: { readonly name: string } | null }>(node).id;
-	if (declared != null) return declared.name;
-	const parent = parentOf(sourceCode, node);
-	if (parent !== null && typeOf(parent) === "VariableDeclarator") {
-		const id = cast<{ readonly id?: { readonly name?: string } }>(parent).id;
-		if (id?.name !== undefined) return id.name;
-	}
-	if (parent !== null && typeOf(parent) === "AssignmentExpression") {
-		const left = cast<{ readonly left?: { readonly name?: string } }>(parent).left;
-		if (left?.name !== undefined) return left.name;
-	}
-	return "(anonymous)";
 }
 
 /** Primitive annotations transpose silently; structural ones fail the compiler. */
@@ -109,6 +103,10 @@ const PRIMITIVE_TYPE_TEXT = /^(?:string|number|bigint|boolean|unknown|any|null|u
 /**
  * Whether every positional parameter carries a distinct non-primitive type:
  * transposing such arguments is a compile error, so ordering needs no guard.
+ *
+ * @param {SourceCode} sourceCode - The rule's source-code accessor.
+ * @param {ReadonlyArray<ESTree.ParamPattern>} params - The parameter list to inspect.
+ * @returns {boolean} True when transposing any pair fails the compiler.
  */
 function transpositionSafe(
 	sourceCode: SourceCode,
@@ -147,25 +145,47 @@ export const noMultipleFunctionParamsRule = defineRule({
 				rawOptions?.[0]?.exemptRouteBasenames ?? DEFAULT_ROUTE_BASENAMES,
 			),
 		};
+		let fileBase = "";
 		const check = (node: ESTree.Node): void => {
-			const filename = context.filename;
 			const fn = cast<FunctionLike>(node);
 			if (fn.params.length <= DEFAULT_MAX_PARAMS) return;
 			if (!isOwnedFunction(context.sourceCode, node)) return;
 			if (transpositionSafe(context.sourceCode, fn.params)) return;
-			if (isExemptRouteHandler(options, filename, context.sourceCode, node)) return;
+			if (
+				isExemptRouteHandler({
+					options,
+					baseName: fileBase,
+					sourceCode: context.sourceCode,
+					node,
+				})
+			)
+				return;
+			const declaredId = cast<{ readonly id?: { readonly name: string } | null }>(node).id;
+			let name = "(anonymous)";
+			if (declaredId != null) {
+				name = declaredId.name;
+			} else {
+				const parent = parentOf(context.sourceCode, node);
+				if (parent !== null && typeOf(parent) === "VariableDeclarator") {
+					const id = cast<{ readonly id?: { readonly name?: string } }>(parent).id;
+					if (id?.name !== undefined) name = id.name;
+				} else if (parent !== null && typeOf(parent) === "AssignmentExpression") {
+					const left = cast<{ readonly left?: { readonly name?: string } }>(parent).left;
+					if (left?.name !== undefined) name = left.name;
+				}
+			}
 			context.report({
 				node,
 				messageId: "multipleParams",
-				data: {
-					name: displayName(context.sourceCode, node),
-					count: String(fn.params.length),
-				},
+				data: { name, count: String(fn.params.length) },
 			});
 		};
 		return {
 			before() {
-				if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
+				const normalized = context.filename.replaceAll("\\", "/");
+				const segments = normalized.split("/");
+				fileBase = segments[segments.length - 1] ?? normalized;
+				if (TEST_FILE.test(normalized)) return false;
 			},
 			FunctionDeclaration: check,
 			FunctionExpression: check,
