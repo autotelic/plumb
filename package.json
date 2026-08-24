@@ -1,23 +1,24 @@
 {
   "name": "@autotelic/plumb",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Opinionated Oxlint rules that keep TypeScript true: generic and Effect-specific patterns, maintained as one source of truth for the autotelic repos.",
   "license": "MIT",
   "files": [
-    "src"
+    "dist"
   ],
   "publishConfig": {
     "access": "public"
   },
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./effect": "./src/effect/index.ts",
-    "./meta": "./src/meta/index.ts",
-    "./testing": "./src/testing/index.ts"
+    ".": "./dist/index.js",
+    "./effect": "./dist/effect/index.js",
+    "./meta": "./dist/meta/index.js",
+    "./testing": "./dist/testing/index.js"
   },
   "scripts": {
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm check:rule-tests && pnpm check:config",
+    "build": "tsc -p tsconfig.build.json",
     "lint": "oxlint src",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",

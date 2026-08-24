@@ -25,6 +25,9 @@ jobs:
       - name: Check
         run: pnpm install --frozen-lockfile && pnpm check
 
+      - name: Build
+        run: pnpm build
+
       - name: Publish
         run: npm publish --access public
         env:
