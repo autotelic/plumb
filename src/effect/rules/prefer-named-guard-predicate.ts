@@ -1,7 +1,6 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
-import { cast } from "../../shared/structural.ts";
 import { childNodes } from "../../shared/child-nodes.ts";
 import { readField } from "../../shared/structural.ts";
 
@@ -29,8 +28,8 @@ function chainLeaf(expression: ESTree.Expression): boolean {
 	if (expression.type === "LogicalExpression") {
 		return chainLeaf(expression.left) && chainLeaf(expression.right);
 	}
-	if (readField<string>(expression, "type") === "ParenthesizedExpression") {
-		return chainLeaf(cast<{ expression: ESTree.Expression }>(expression).expression);
+	if (expression.type === "ParenthesizedExpression") {
+		return chainLeaf(expression.expression);
 	}
 	if (expression.type !== "CallExpression") return false;
 	const callee = expression.callee;
