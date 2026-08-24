@@ -1,10 +1,10 @@
 import { defineRule } from "@oxlint/plugins";
 
-import type { ESTree } from "@oxlint/plugins";
+import type { ESTree, SourceCode } from "@oxlint/plugins";
 
 import { ancestorsOf } from "../../shared/ancestors.ts";
 
-import { cast, isString, type NodeFieldValue } from "../../shared/structural.ts";
+import { isString } from "../../shared/structural.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
 
@@ -13,72 +13,52 @@ interface CallbackExpression {
 	parameterName: string | undefined;
 }
 
-/** Discriminant reader for engine nodes the typings leave loose.
+/** Computed or plain property name on a member expression.
  *
- * @param {ESTree.Node} node - The engine node to read.
- * @returns {string} The node's `type` discriminant.
- */
-function typeOf(node: ESTree.Node): string {
-	return cast<{ readonly type: string }>(node).type;
-}
-
-/**
- * Property name of a member expression, computed or plain.
- *
- * @param {ESTree.Node} member - The member expression node.
+ * @param {ESTree.MemberExpression} member - The member expression node.
  * @returns {string | null} The property name, or null when unavailable.
  */
-function memberName(member: ESTree.Node): string | null {
-	const memberView = cast<{
-		readonly computed?: boolean;
-		readonly property: ESTree.Node;
-	}>(member);
-	if (memberView.computed === true) {
-		const value = cast<{ readonly value?: NodeFieldValue }>(memberView.property).value;
-		return value !== undefined && isString(value) ? value : null;
+function memberName(member: ESTree.MemberExpression): string | null {
+	if (!member.computed) {
+		return member.property.type === "Identifier" ? member.property.name : null;
 	}
-	return typeOf(memberView.property) === "Identifier"
-		? cast<{ readonly name: string }>(memberView.property).name
-		: null;
+	if (member.property.type === "Literal" && isString(member.property.value)) {
+		return member.property.value;
+	}
+	return null;
 }
 
-/**
- * Imported name behind an import specifier, for both plain and string-literal spellings.
+/** Imported name behind an import specifier, for both plain and string-literal spellings.
  *
  * @param {ESTree.Node} specifier - The import specifier node.
  * @returns {string | undefined} The imported name, if any.
  */
 function importedNameOf(specifier: ESTree.Node): string | undefined {
-	const imported = cast<{
-		readonly imported?: { readonly name?: string; readonly value?: NodeFieldValue };
-	}>(specifier).imported;
-	if (imported === undefined) return undefined;
-	if (imported.name !== undefined) return imported.name;
-	const value = imported.value;
-	return value !== undefined && isString(value) ? value : undefined;
+	if (specifier.type !== "ImportSpecifier") return undefined;
+	return specifier.imported.type === "Identifier" ? specifier.imported.name : specifier.imported.value;
 }
 
-/**
- * Local binding name of an import specifier.
+/** Local binding name of an import specifier.
  *
  * @param {ESTree.Node} specifier - The import specifier node.
  * @returns {string | undefined} The local bound name, if any.
  */
 function localNameOf(specifier: ESTree.Node): string | undefined {
-	return cast<{ readonly local?: { readonly name?: string } }>(specifier).local?.name;
+	return specifier.type === "ImportSpecifier" || specifier.type === "ImportNamespaceSpecifier"
+		? specifier.local.name
+		: undefined;
 }
 
 /** Whether the call site sits inside a `static` class property initializer.
  *
- * @param {import("@oxlint/plugins").SourceCode} sourceCode - The rule's source-code accessor.
+ * @param {SourceCode} sourceCode - The rule's source-code accessor.
  * @param {ESTree.Node} node - The call expression being visited.
  * @returns {boolean} True when enclosed by a static property definition.
  */
-function inStaticClassField(sourceCode: import("@oxlint/plugins").SourceCode, node: ESTree.Node): boolean {
+function inStaticClassField(sourceCode: SourceCode, node: ESTree.Node): boolean {
 	for (const current of ancestorsOf(sourceCode, node)) {
-		const kind = typeOf(current);
-		if (kind === "PropertyDefinition") return cast<{ readonly static?: boolean }>(current).static === true;
-		if (kind === "Program") return false;
+		if (current.type === "PropertyDefinition") return current.static === true;
+		if (current.type === "Program") return false;
 	}
 	return false;
 }
@@ -90,39 +70,35 @@ function inStaticClassField(sourceCode: import("@oxlint/plugins").SourceCode, no
  * @returns {CallbackExpression | undefined} The extracted expression and parameter, if matching.
  */
 function callbackExpression(node: ESTree.Node): CallbackExpression | undefined {
-	const kind = typeOf(node);
-	if (kind !== "ArrowFunctionExpression" && kind !== "FunctionExpression") return undefined;
-	const params = cast<{ readonly params: ReadonlyArray<ESTree.Node> }>(node).params;
-	if (params.length !== 1) return undefined;
-	const parameter = params[0]!;
-	if (typeOf(parameter) !== "Identifier") return undefined;
-	const parameterName = cast<{ readonly name: string }>(parameter).name;
-	const body = cast<{ readonly body: ESTree.Node }>(node).body;
-	if (typeOf(body) !== "BlockStatement") return { expression: body, parameterName };
-	const statements = cast<{ readonly body: ReadonlyArray<ESTree.Node> }>(body).body;
-	if (statements.length !== 1) return undefined;
-	const statement = statements[0]!;
-	if (typeOf(statement) !== "ReturnStatement") return undefined;
-	const argument = cast<{ readonly argument?: ESTree.Node | null }>(statement).argument;
-	if (argument === null || argument === undefined) return undefined;
-	return { expression: argument, parameterName };
+	if (node.type !== "ArrowFunctionExpression" && node.type !== "FunctionExpression") return undefined;
+	if (node.params.length !== 1) return undefined;
+	const parameter = node.params[0]!;
+	if (parameter.type !== "Identifier") return undefined;
+	const parameterName = parameter.name;
+	if (node.body === null) return undefined;
+	let body: ESTree.Node = node.body;
+	if (body.type === "BlockStatement") {
+		if (body.body.length !== 1) return undefined;
+		const statement = body.body[0]!;
+		if (statement.type !== "ReturnStatement") return undefined;
+		if (statement.argument === null || statement.argument === undefined) return undefined;
+		body = statement.argument;
+	}
+	return { expression: body, parameterName };
 }
 
 /** `svc.member(...)` or bare `svc.member`, where `svc` is exactly the acquired service.
  *
- * @param {ESTree.Node} expression - The forwarded callback expression.
+ * @param {ESTree.Expression} expression - The forwarded callback expression.
  * @param {string | undefined} parameterName - The acquired service parameter name.
  * @returns {boolean} True when the expression only reads that service's member.
  */
 function isDirectParameterMember(expression: ESTree.Node, parameterName: string | undefined): boolean {
 	if (parameterName === undefined) return false;
 	const member =
-		typeOf(expression) === "CallExpression"
-			? cast<{ readonly callee: ESTree.Node }>(expression).callee
-			: expression;
-	if (typeOf(member) !== "MemberExpression") return false;
-	const object = cast<{ readonly object: ESTree.Node }>(member).object;
-	return typeOf(object) === "Identifier" && cast<{ readonly name: string }>(object).name === parameterName;
+		expression.type === "CallExpression" ? expression.callee : expression;
+	if (member.type !== "MemberExpression") return false;
+	return member.object.type === "Identifier" && member.object.name === parameterName;
 }
 
 /** Static forwarders alias a service method at module scope; acquire the service where its method is used instead.
@@ -152,31 +128,28 @@ export const noStaticEffectServiceForwardersRule = defineRule({
 			node: ESTree.Node,
 			method: string,
 			directNames: ReadonlySet<string>,
-		): boolean => {
-			if (typeOf(node) !== "CallExpression") return false;
-			const callee = cast<{ readonly callee: ESTree.Node }>(node).callee;
-			if (typeOf(callee) === "Identifier") {
-				return directNames.has(cast<{ readonly name: string }>(callee).name);
+		): node is ESTree.CallExpression => {
+			if (node.type !== "CallExpression") return false;
+			const callee = node.callee;
+			if (callee.type === "Identifier") {
+				return directNames.has(callee.name);
 			}
-			if (typeOf(callee) !== "MemberExpression") return false;
-			const object = cast<{ readonly object: ESTree.Node }>(callee).object;
+			if (callee.type !== "MemberExpression") return false;
 			return (
-				typeOf(object) === "Identifier" &&
-				effectNamespaceNames.has(cast<{ readonly name: string }>(object).name) &&
+				callee.object.type === "Identifier" &&
+				effectNamespaceNames.has(callee.object.name) &&
 				memberName(callee) === method
 			);
 		};
 
 		const isServiceAcquisition = (node: ESTree.Node): boolean => {
 			if (!isEffectCall(node, "service", serviceNames)) return false;
-			const args = cast<{ readonly arguments: ReadonlyArray<ESTree.Node> }>(node).arguments;
-			return args.length === 1 && typeOf(args[0]!) === "ThisExpression";
+			return node.arguments.length === 1 && node.arguments[0]!.type === "ThisExpression";
 		};
 
 		const isForwardingFlatMap = (node: ESTree.Node): boolean => {
 			if (!isEffectCall(node, "flatMap", flatMapNames)) return false;
-			const args = cast<{ readonly arguments: ReadonlyArray<ESTree.Node> }>(node).arguments;
-			const last = args[args.length - 1];
+			const last = node.arguments[node.arguments.length - 1];
 			if (last === undefined) return false;
 			const callback = callbackExpression(last);
 			if (callback === undefined) return false;
@@ -188,32 +161,27 @@ export const noStaticEffectServiceForwardersRule = defineRule({
 				if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
 			},
 			ImportDeclaration(node) {
-				const sourceValue = cast<{
-					readonly source?: { readonly value?: unknown };
-				}>(node).source?.value;
-				const specifiers = cast<{
-					readonly specifiers: ReadonlyArray<ESTree.Node>;
-				}>(node).specifiers;
-				if (sourceValue === "effect") {
-					for (const specifier of specifiers) {
+				if (node.source.value === "effect") {
+					for (const specifier of node.specifiers) {
 						const local = localNameOf(specifier);
 						if (local === undefined) continue;
-						const kind = typeOf(specifier);
-						if (kind === "ImportNamespaceSpecifier") effectNamespaceNames.add(local);
+						if (specifier.type === "ImportNamespaceSpecifier") effectNamespaceNames.add(local);
 						const imported = importedNameOf(specifier);
-						if (kind === "ImportSpecifier" && imported === "Effect") {
+						if (specifier.type === "ImportSpecifier" && imported === "Effect") {
 							effectNamespaceNames.add(local);
 						}
-						if (kind === "ImportSpecifier" && imported === "pipe") pipeNames.add(local);
+						if (specifier.type === "ImportSpecifier" && imported === "pipe") pipeNames.add(local);
 					}
 					return;
 				}
-				if (sourceValue !== "effect/Effect") return;
-				for (const specifier of specifiers) {
+				if (node.source.value !== "effect/Effect") return;
+				for (const specifier of node.specifiers) {
 					const local = localNameOf(specifier);
 					if (local === undefined) continue;
-					const kind = typeOf(specifier);
-					if (kind === "ImportNamespaceSpecifier" || kind === "ImportDefaultSpecifier") {
+					if (
+						specifier.type === "ImportNamespaceSpecifier" ||
+						specifier.type === "ImportDefaultSpecifier"
+					) {
 						effectNamespaceNames.add(local);
 						continue;
 					}
@@ -234,7 +202,7 @@ export const noStaticEffectServiceForwardersRule = defineRule({
 				}
 				const callee = node.callee;
 				let subject: ESTree.Node | undefined;
-				let operators: ReadonlyArray<ESTree.Node>;
+				let operators: ReadonlyArray<ESTree.Argument>;
 				if (callee.type === "Identifier") {
 					if (!pipeNames.has(callee.name)) return;
 					subject = args[0];
