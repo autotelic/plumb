@@ -42,7 +42,11 @@ function isLiteralExpression(expression: ESTree.Expression | ESTree.PrivateIdent
 	);
 }
 
-function isParamField(expression: ESTree.Expression | ESTree.PrivateIdentifier, paramName: string): boolean {
+function isParamField(payload: {
+	expression: ESTree.Expression | ESTree.PrivateIdentifier;
+	paramName: string;
+}): boolean {
+	const { expression, paramName } = payload;
 	if (expression.type === "PrivateIdentifier") return false;
 	if (expression.type !== "MemberExpression" || expression.object.type !== "Identifier") {
 		return false;
@@ -52,44 +56,37 @@ function isParamField(expression: ESTree.Expression | ESTree.PrivateIdentifier, 
 	return expression.property.type === "Identifier" || expression.property.type === "PrivateIdentifier";
 }
 
-function isFieldComparison(expression: ESTree.Expression, paramName: string): boolean {
-	if (expression.type !== "BinaryExpression") return false;
-	if (!COMPARISON_OPERATORS.has(expression.operator)) return false;
-	const fieldOnLeft = isParamField(expression.left, paramName);
-	const literalOnRight = isLiteralExpression(expression.right);
-	const fieldOnRight = isParamField(expression.right, paramName);
-	const literalOnLeft = isLiteralExpression(expression.left);
-	return (fieldOnLeft && literalOnRight) || (fieldOnRight && literalOnLeft);
-}
-
-function isFieldSignalBody(expression: ESTree.Expression, paramName: string): boolean {
+function isFieldSignalBody(payload: { expression: ESTree.Expression; paramName: string }): boolean {
+	const { expression, paramName } = payload;
 	if (expression.type === "LogicalExpression") {
 		return (
-			isFieldSignalBody(expression.left, paramName) &&
-			isFieldSignalBody(expression.right, paramName)
+			isFieldSignalBody({ expression: expression.left, paramName }) &&
+			isFieldSignalBody({ expression: expression.right, paramName })
 		);
 	}
 	if (expression.type === "UnaryExpression" && expression.operator === "!") {
-		return isFieldSignalBody(expression.argument, paramName);
+		return isFieldSignalBody({ expression: expression.argument, paramName });
 	}
 	if (expression.type === "ParenthesizedExpression") {
-		return isFieldSignalBody(expression.expression, paramName);
+		return isFieldSignalBody({ expression: expression.expression, paramName });
 	}
-	return isFieldComparison(expression, paramName);
+	if (expression.type === "BinaryExpression" && COMPARISON_OPERATORS.has(expression.operator)) {
+		const fieldOnLeft = isParamField({ expression: expression.left, paramName });
+		const literalOnRight = isLiteralExpression(expression.right);
+		const fieldOnRight = isParamField({ expression: expression.right, paramName });
+		const literalOnLeft = isLiteralExpression(expression.left);
+		return (fieldOnLeft && literalOnRight) || (fieldOnRight && literalOnLeft);
+	}
+	return false;
 }
 
-function predicateBody(node: PredicateFunction): ESTree.Expression | null {
-	if (node.body === null || node.body === undefined) return null;
-	if (node.body.type === "BlockStatement") {
-		if (node.body.body.length !== 1) return null;
-		const only = node.body.body[0];
-		if (only === undefined) return null;
-		if (only.type === "ReturnStatement" && only.argument !== null) return only.argument;
-		return null;
-	}
-	return node.body;
-}
-
+/**
+ * Build a predicate-analysis candidate when the function reads as a boolean
+ * classification derived solely from comparing one typed parameter's fields.
+ *
+ * @param {PredicateFunction} node - The exported function node under analysis.
+ * @returns {PredicateCandidate | null} The candidate, or null when not a field-signal predicate.
+ */
 function candidateFrom(
 	node: PredicateFunction,
 ): PredicateCandidate | null {
@@ -103,32 +100,36 @@ function candidateFrom(
 	if (annotation === null || annotation === undefined) return null;
 	const typeName = referencedTypeName(annotation.typeAnnotation);
 	if (typeName === null) return null;
-	const body = predicateBody(node);
+	let body: ESTree.Expression | null = null;
+	if (node.body !== null && node.body !== undefined) {
+		if (node.body.type === "BlockStatement") {
+			const only = node.body.body.length === 1 ? node.body.body[0] : undefined;
+			if (only !== undefined && only.type === "ReturnStatement" && only.argument !== null) {
+				body = only.argument;
+			}
+		} else {
+			body = node.body;
+		}
+	}
 	if (body === null) return null;
-	if (!isFieldSignalBody(body, firstParam.type === "Identifier" ? firstParam.name : "")) {
+	if (
+		!isFieldSignalBody({
+			expression: body,
+			paramName: firstParam.type === "Identifier" ? firstParam.name : "",
+		})
+	) {
 		return null;
 	}
 	return { node, typeName };
 }
 
-function returnTypeName(node: PredicateFunction): string | null {
-	if (node.returnType === null || node.returnType === undefined) return null;
-	return referencedTypeName(node.returnType.typeAnnotation);
-}
-
-function parameterName(node: PredicateFunction): string | null {
-	const parameter = node.params[0];
-	if (parameter === null || parameter === undefined) return null;
-	if (parameter.type === "Identifier") return parameter.name;
-	if (parameter.type === "AssignmentPattern" && parameter.left.type === "Identifier") {
-		return parameter.left.name;
-	}
-	return null;
-}
-
 const AUXILIARIES = new Set(["is", "has", "can", "should", "was", "will", "did", "be", "the"]);
 
-/** Split a camelCase/separator name into lowercase tokens, dropping auxiliary prefixes like `is`/`has`. */
+/** Split a camelCase/separator name into lowercase tokens, dropping auxiliary prefixes like `is`/`has`.
+ *
+ * @param {string} name - The name to tokenise.
+ * @returns {string[]} Content-bearing lowercase tokens.
+ */
 function contentTokens(name: string): string[] {
 	return name
 		.replaceAll(/([a-z0-9])([A-Z])/gu, "$1 $2")
@@ -137,19 +138,11 @@ function contentTokens(name: string): string[] {
 		.filter((token) => token.length > 0 && !AUXILIARIES.has(token));
 }
 
-function propertyName(member: ESTree.TSSignature): string | null {
-	if (member.type !== "TSPropertySignature") return null;
-	const key = member.key;
-	return key.type === "Identifier" ? key.name : null;
-}
-
-function isBooleanMember(member: ESTree.TSSignature): boolean {
-	if (member.type !== "TSPropertySignature") return false;
-	const annotation = member.typeAnnotation;
-	return annotation?.typeAnnotation.type === "TSBooleanKeyword";
-}
-
-/** Accept both `{ members }` and flattened `{ body }` shapes for an interface/type-literal body. */
+/** Accept both `{ members }` and flattened `{ body }` shapes for an interface/type-literal body.
+ *
+ * @param {ESTree.TSInterfaceBody | ESTree.TSTypeLiteral} bodyNode - The declared body node.
+ * @returns {ESTree.TSSignature[]} The signature list.
+ */
 function memberList(bodyNode: ESTree.TSInterfaceBody | ESTree.TSTypeLiteral): ESTree.TSSignature[] {
 	const members = "body" in bodyNode ? bodyNode.body : bodyNode.members;
 	return [...members];
@@ -226,8 +219,11 @@ export const noBooleanFieldSignalsRule = defineRule({
 		};
 
 		const checkDeclaredBody = (reportNode: ESTree.Node, members: ESTree.TSSignature[], typeName: string): void => {
-			const booleanMembers = members.filter(isBooleanMember);
-			const booleanNames = booleanMembers.map(propertyName).filter((name) => name !== null);
+			const booleanNames = members.flatMap((member) => {
+				if (member.type !== "TSPropertySignature") return [];
+				if (member.typeAnnotation?.typeAnnotation.type !== "TSBooleanKeyword") return [];
+				return member.key.type === "Identifier" ? [member.key.name] : [];
+			});
 			if (booleanNames.length >= 3) {
 				context.report({
 					node: reportNode,
@@ -253,9 +249,28 @@ export const noBooleanFieldSignalsRule = defineRule({
 		};
 
 		const handle = (name: string, fn: PredicateFunction, rawNode: ESTree.Node) => {
-			if (parameterName(fn) !== null) recordPredicate(candidateFrom(fn));
-			const ctorReturn = CONSTRUCTOR_NAME.test(name) ? returnTypeName(fn) : null;
-			if (ctorReturn !== null && "id" in fn) recordConstructor(ctorReturn, fn as ESTree.Function);
+			const firstParameter = fn.params[0];
+			const boundParameter =
+				firstParameter === undefined
+					? null
+					: firstParameter.type === "Identifier"
+						? firstParameter.name
+						: firstParameter.type === "AssignmentPattern" && firstParameter.left.type === "Identifier"
+							? firstParameter.left.name
+							: null;
+			if (boundParameter !== null) recordPredicate(candidateFrom(fn));
+			const declaredReturn =
+				fn.returnType === null || fn.returnType === undefined
+					? null
+					: referencedTypeName(fn.returnType.typeAnnotation);
+			const ctorReturn = CONSTRUCTOR_NAME.test(name) ? declaredReturn : null;
+			if (
+				ctorReturn !== null &&
+				(fn.type === "FunctionDeclaration" || fn.type === "FunctionExpression") &&
+				fn.id !== null
+			) {
+				recordConstructor(ctorReturn, fn);
+			}
 		};
 
 		return {
