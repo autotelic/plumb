@@ -2,56 +2,11 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
 
-import { cast, isString, type NodeFieldValue } from "../../shared/structural.ts";
-
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
+import { isString } from "../../shared/structural.ts";
 
 const PROVISION_METHODS = new Set(["provide", "provideMerge"]);
 
-/** Discriminant reader for engine nodes the typings leave loose.
- *
- * @param {ESTree.Node} node - The engine node to read.
- * @returns {string} The node's `type` discriminant.
- */
-function typeOf(node: ESTree.Node): string {
-	return cast<{ readonly type: string }>(node).type;
-}
-
-/**
- * Property name of a member expression, computed or plain.
- *
- * @param {ESTree.Node} member - The member expression node.
- * @returns {string | null} The property name, or null when unavailable.
- */
-function memberName(member: ESTree.Node): string | null {
-	const memberView = cast<{
-		readonly computed?: boolean;
-		readonly property: ESTree.Node;
-	}>(member);
-	if (memberView.computed === true) {
-		const value = cast<{ readonly value?: NodeFieldValue }>(memberView.property).value;
-		return value !== undefined && isString(value) ? value : null;
-	}
-	return typeOf(memberView.property) === "Identifier"
-		? cast<{ readonly name: string }>(memberView.property).name
-		: null;
-}
-
-/** Whether an argument is a `<layerVariable>.provide(...)` / provideMerge call.
- *
- * @param {ESTree.Node} argument - The pipe argument to inspect.
- * @param {ReadonlySet<string>} layerNames - Local names bound to the Layer export.
- * @returns {boolean} True when the argument provisions a layer.
- */
-function isLayerProvision(argument: ESTree.Node, layerNames: ReadonlySet<string>): boolean {
-	if (typeOf(argument) !== "CallExpression") return false;
-	const callee = cast<{ readonly callee: ESTree.Node }>(argument).callee;
-	if (typeOf(callee) !== "MemberExpression") return false;
-	const object = cast<{ readonly object: ESTree.Node }>(callee).object;
-	if (typeOf(object) !== "Identifier") return false;
-	if (!layerNames.has(cast<{ readonly name: string }>(object).name)) return false;
-	return memberName(callee) !== null && PROVISION_METHODS.has(memberName(callee) ?? "");
-}
+const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
 
 /** Multiple provision stages in one pipe entangle dependency tiers; combine independent layers or name each stage.
  *
@@ -77,27 +32,28 @@ export const noCascadingLayerProvideRule = defineRule({
 				if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
 			},
 			ImportDeclaration(node) {
-				const source = cast<{
-					readonly source?: { readonly value?: unknown };
-					readonly specifiers: ReadonlyArray<ESTree.Node>;
-				}>(node);
-				if (source.source?.value !== "effect") return;
-				for (const specifier of source.specifiers) {
-					const imported = cast<{
-						readonly imported?: { readonly name?: string; readonly value?: NodeFieldValue };
-					}>(specifier).imported;
-					if (imported === undefined) continue;
+				if (node.source.value !== "effect") return;
+				for (const specifier of node.specifiers) {
+					if (specifier.type === "ImportNamespaceSpecifier" || specifier.type === "ImportDefaultSpecifier") {
+						if (specifier.local.name === "Layer") layerNames.add("Layer");
+						continue;
+					}
+					if (specifier.type !== "ImportSpecifier") continue;
 					const importedName =
-						imported.name ?? (imported.value !== undefined && isString(imported.value) ? imported.value : undefined);
-					const local = cast<{ readonly local?: { readonly name?: string } }>(specifier).local?.name;
-					if (importedName === "Layer" && local !== undefined) layerNames.add(local);
+						specifier.imported.type === "Identifier"
+							? specifier.imported.name
+							: isString(specifier.imported.value)
+								? specifier.imported.value
+								: undefined;
+					if (importedName !== "Layer") continue;
+					layerNames.add(specifier.local.name);
 				}
 			},
 			CallExpression(node) {
 				const callee = node.callee;
 				if (
 					callee.type !== "MemberExpression" ||
-					callee.computed === true ||
+					callee.computed ||
 					callee.property.type !== "Identifier" ||
 					callee.property.name !== "pipe"
 				) {
@@ -105,7 +61,16 @@ export const noCascadingLayerProvideRule = defineRule({
 				}
 				let stages = 0;
 				for (const argument of node.arguments) {
-					if (isLayerProvision(argument, layerNames)) stages += 1;
+					if (
+						argument.type === "CallExpression" &&
+						argument.callee.type === "MemberExpression" &&
+						!argument.callee.computed &&
+						argument.callee.object.type === "Identifier" &&
+						layerNames.has(argument.callee.object.name) &&
+						argument.callee.property.type === "Identifier" &&
+						PROVISION_METHODS.has(argument.callee.property.name)
+					)
+						stages += 1;
 				}
 				if (stages < 2) return;
 				context.report({ node, messageId: "cascadingProvide" });
