@@ -66,6 +66,9 @@ export default defineConfig({
     "plumb-meta/require-create-once": "error",
     "plumb-meta/no-disable-directives": "error",
 
+    // regexp — flag-sensitive syntax must fail loudly, not silently change meaning.
+    "require-unicode-regexp": "error",
+
     // jsdoc — annotation quality for every documented contract.
     "jsdoc/require-param": "error",
     "jsdoc/require-param-description": "error",
