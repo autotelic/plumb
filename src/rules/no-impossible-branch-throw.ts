@@ -7,7 +7,11 @@ const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 const IMPOSSIBLE_MESSAGE =
 	/(?:never\s+happen|impossible|unreachable|invariant|cannot\s+happen|can'?t\s+happen|unexpected\s+state|not\s+possible)/iu;
 
-/** Documented contract for throwMessage. */
+/** Extract the prose message of a thrown error literal or constructor.
+ *
+ * @param {ESTree.ThrowStatement} node - The throw statement to inspect.
+ * @returns {string | null} The thrown message, or null when not a string literal.
+ */
 function throwMessage(node: ESTree.ThrowStatement): string | null {
 	const argument = node.argument;
 	if (argument === null || argument === undefined) return null;
