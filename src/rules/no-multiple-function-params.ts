@@ -33,15 +33,6 @@ interface FunctionLike {
 	readonly params: ReadonlyArray<ESTree.ParamPattern>;
 }
 
-/** Discriminant reader for engine nodes the typings leave loose.
- *
- * @param {ESTree.Node} node - The engine node to read.
- * @returns {string} The node's `type` discriminant.
- */
-function typeOf(node: ESTree.Node): string {
-	return cast<{ readonly type: string }>(node).type;
-}
-
 function parentOf(sourceCode: SourceCode, node: ESTree.Node): ESTree.Node | null {
 	return ancestorsOf(sourceCode, node)[0] ?? null;
 }
@@ -54,10 +45,10 @@ function parentOf(sourceCode: SourceCode, node: ESTree.Node): ESTree.Node | null
  * @returns {boolean} True when the module owns the function's arity.
  */
 function isOwnedFunction(sourceCode: SourceCode, node: ESTree.Node): boolean {
-	if (typeOf(node) === "FunctionDeclaration") return true;
+	if (node.type === "FunctionDeclaration") return true;
 	const parent = parentOf(sourceCode, node);
 	if (parent === null) return false;
-	const parentType = typeOf(parent);
+	const parentType = parent.type;
 	if (
 		parentType === "CallExpression" ||
 		parentType === "NewExpression" ||
@@ -89,12 +80,12 @@ function isExemptRouteHandler(payload: {
 	sourceCode: SourceCode;
 	node: ESTree.Node;
 }): boolean {
-	if (typeOf(payload.node) !== "FunctionDeclaration") return false;
-	const name = cast<{ readonly id?: { readonly name: string } | null }>(payload.node).id?.name;
+	if (payload.node.type !== "FunctionDeclaration") return false;
+	const name = payload.node.id?.name;
 	if (name === undefined || !payload.options.methodNames.has(name)) return false;
 	if (!payload.options.routeBasenames.has(payload.baseName)) return false;
 	const parent = parentOf(payload.sourceCode, payload.node);
-	return parent !== null && typeOf(parent) === "ExportNamedDeclaration";
+	return parent !== null && parent.type === "ExportNamedDeclaration";
 }
 
 /** Primitive annotations transpose silently; structural ones fail the compiler. */
@@ -147,7 +138,13 @@ export const noMultipleFunctionParamsRule = defineRule({
 		};
 		let fileBase = "";
 		const check = (node: ESTree.Node): void => {
-			const fn = cast<FunctionLike>(node);
+			if (
+				node.type !== "FunctionDeclaration" &&
+				node.type !== "FunctionExpression" &&
+				node.type !== "ArrowFunctionExpression"
+			)
+				return;
+			const fn = node;
 			if (fn.params.length <= DEFAULT_MAX_PARAMS) return;
 			if (!isOwnedFunction(context.sourceCode, node)) return;
 			if (transpositionSafe(context.sourceCode, fn.params)) return;
@@ -160,18 +157,18 @@ export const noMultipleFunctionParamsRule = defineRule({
 				})
 			)
 				return;
-			const declaredId = cast<{ readonly id?: { readonly name: string } | null }>(node).id;
 			let name = "(anonymous)";
-			if (declaredId != null) {
-				name = declaredId.name;
+			if (node.id !== null && node.id !== undefined) {
+				name = node.id.name;
 			} else {
 				const parent = parentOf(context.sourceCode, node);
-				if (parent !== null && typeOf(parent) === "VariableDeclarator") {
-					const id = cast<{ readonly id?: { readonly name?: string } }>(parent).id;
-					if (id?.name !== undefined) name = id.name;
-				} else if (parent !== null && typeOf(parent) === "AssignmentExpression") {
-					const left = cast<{ readonly left?: { readonly name?: string } }>(parent).left;
-					if (left?.name !== undefined) name = left.name;
+				if (parent?.type === "VariableDeclarator" && parent.id.type === "Identifier") {
+					name = parent.id.name;
+				} else if (
+					parent?.type === "AssignmentExpression" &&
+					parent.left.type === "Identifier"
+				) {
+					name = parent.left.name;
 				}
 			}
 			context.report({
