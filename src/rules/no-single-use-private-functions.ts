@@ -4,7 +4,7 @@ import type { ESTree, SourceCode } from "@oxlint/plugins";
 
 import { ancestorsOf } from "../shared/ancestors.ts";
 
-import { cast, isString, type NodeFieldValue } from "../shared/structural.ts";
+import { isString } from "../shared/structural.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
 
@@ -25,15 +25,6 @@ const MESSAGE_BY_KIND = {
 	function: "singleUseFunction",
 	type: "singleUseType",
 } satisfies Readonly<Record<CandidateKind, string>>;
-
-/** Discriminant reader for engine nodes the typings leave loose.
- *
- * @param {ESTree.Node} node - The engine node to read.
- * @returns {string} The node's `type` discriminant.
- */
-function typeOf(node: ESTree.Node): string {
-	return cast<{ readonly type: string }>(node).type;
-}
 
 function isPascalCase(name: string): boolean {
 	return /^[A-Z]/u.test(name);
@@ -77,7 +68,7 @@ function isEffectMethodCall(payload: { call: ESTree.Node; method: string }): boo
  * @returns {CandidateKind | null} The candidate kind, or null when not a candidate.
  */
 function effectInitializerKind(init: ESTree.Node): CandidateKind | null {
-	const kind = typeOf(init);
+	const kind = init.type;
 	if (kind === "ArrowFunctionExpression" || kind === "FunctionExpression") {
 		return "function";
 	}
@@ -147,7 +138,7 @@ function exportedNames(program: ESTree.Program): Set<string> {
  */
 function hasTypeAncestor(sourceCode: SourceCode, identifier: ESTree.Node): boolean {
 	for (const current of ancestorsOf(sourceCode, identifier)) {
-		const kind = typeOf(current);
+		const kind = current.type;
 		if (kind.startsWith("TS")) return true;
 		if (
 			kind === "Program" ||
@@ -168,7 +159,7 @@ function hasTypeAncestor(sourceCode: SourceCode, identifier: ESTree.Node): boole
  */
 function hasExportAncestor(sourceCode: SourceCode, identifier: ESTree.Node): boolean {
 	for (const current of ancestorsOf(sourceCode, identifier)) {
-		const kind = typeOf(current);
+		const kind = current.type;
 		if (
 			kind === "ExportDefaultDeclaration" ||
 			kind === "ExportSpecifier" ||
