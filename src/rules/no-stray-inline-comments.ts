@@ -65,7 +65,6 @@ export const noStrayInlineCommentsRule = defineRule({
 				});
 				for (const comment of lineComments) {
 					if (exempt.has(comment)) continue;
-					// SAFETY: Line comments carry a range; the offset anchors body-range checks.
 					const start = comment.range?.[0];
 					if (start === undefined) continue;
 					if (!bodyRanges.some(([from, to]) => start > from && start < to)) continue;
