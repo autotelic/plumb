@@ -24,14 +24,22 @@ function propertyAnnotation(member: ESTree.TSSignature): ESTree.TSType | null | 
 	return member.typeAnnotation?.typeAnnotation ?? null;
 }
 
-/** Lowercase, strip separators, and naive-singularise so `seatOrder`/`seats`, `entryIndex`/`entries` stems can be compared. */
+/** Lowercase, strip separators, and naive-singularise so `seatOrder`/`seats`, `entryIndex`/`entries` stems can be compared.
+ *
+ * @param {string} name - The field or property name to fold.
+ * @returns {string} The comparison stem.
+ */
 function normaliseName(name: string): string {
 	const folded = name.replaceAll(/[^a-zA-Z0-9]/gu, "").toLowerCase();
 	if (folded.endsWith("ies") && folded.length > 4) return `${folded.slice(0, -3)}y`;
 	return folded.endsWith("s") && folded.length > 3 ? folded.slice(0, -1) : folded;
 }
 
-/** Extract the `x` from `xCount`, `countX`, `numberOfX`, … otherwise null. */
+/** Extract the `x` from `xCount`, `countX`, `numberOfX`, … otherwise null.
+ *
+ * @param {string} name - The candidate count-field name.
+ * @returns {string | null} The counted stem, or null when the name isn't a count pattern.
+ */
 function countStem(name: string): string | null {
 	const suffixMatch = name.match(COUNT_SUFFIX);
 	if (suffixMatch !== null && suffixMatch.index !== null) return name.slice(0, suffixMatch.index);
@@ -43,7 +51,11 @@ function countStem(name: string): string | null {
 	return null;
 }
 
-/** Whether the annotation is any array/map/set/record shape. */
+/** Whether the annotation is any array/map/set/record shape.
+ *
+ * @param {ESTree.TSType | null | undefined} annotation - The annotation to inspect.
+ * @returns {boolean} True when the annotation denotes a keyed collection.
+ */
 function isCollectionLike(annotation: ESTree.TSType | null | undefined): boolean {
 	if (annotation === null || annotation === undefined) return false;
 	if (annotation.type === "TSTypeReference") {
@@ -55,11 +67,11 @@ function isCollectionLike(annotation: ESTree.TSType | null | undefined): boolean
 		: annotation.type === "TSArrayType";
 }
 
-function isNumberLike(annotation: ESTree.TSType | null | undefined): boolean {
-	return annotation?.type === "TSNumberKeyword";
-}
-
-/** Whether the annotation is an array (or readonly array reference) whose element is a primitive keyword. */
+/** Whether the annotation is an array (or readonly array reference) whose element is a primitive keyword.
+ *
+ * @param {ESTree.TSType | null | undefined} annotation - The annotation to inspect.
+ * @returns {"string" | "number" | null} The primitive keyword of the element type, or null.
+ */
 function arrayOfPrimitiveKeys(annotation: ESTree.TSType | null | undefined): "string" | "number" | null {
 	if (annotation === null || annotation === undefined) return null;
 	let elementType: ESTree.TSType | undefined;
@@ -85,7 +97,11 @@ function arrayOfPrimitiveKeys(annotation: ESTree.TSType | null | undefined): "st
 	return null;
 }
 
-/** First type argument's primitive keyword for a keyed collection like `Record<string, T>` / `Map<string, T>`. */
+/** First type argument's primitive keyword for a keyed collection like `Record<string, T>` / `Map<string, T>`.
+ *
+ * @param {ESTree.TSType | null | undefined} annotation - The annotation to inspect.
+ * @returns {"string" | "number" | null} The key keyword, or null when not a keyed reference.
+ */
 function keyKeywordOf(annotation: ESTree.TSType | null | undefined): "string" | "number" | null {
 	if (annotation?.type !== "TSTypeReference") return null;
 	const first = annotation.typeArguments?.params[0] ?? null;
@@ -122,7 +138,7 @@ export const noRedundantDerivedFieldRule = defineRule({
 				const annotation = propertyAnnotation(member);
 
 				const stem = countStem(name);
-				if (stem !== null && isNumberLike(annotation)) {
+				if (stem !== null && annotation?.type === "TSNumberKeyword") {
 					const stemNorm = normaliseName(stem);
 					const sibling = members.find((other) => {
 						if (other === member) return false;
@@ -160,7 +176,6 @@ export const noRedundantDerivedFieldRule = defineRule({
 			}
 		}
 
-	/** Interface bodies nest their signature list under `body`. */
 		function memberList(bodyNode: ESTree.TSInterfaceBody): ESTree.TSSignature[] {
 			return [...bodyNode.body];
 		}
