@@ -34,7 +34,6 @@ export const requireJsdocOnExportedRule = defineRule({
 		},
 			Program(node) {
 				jsdocFollowsLines.clear();
-				// SAFETY: getAllComments returns the engine comment shape this rule defines via CommentLike.
 				for (const comment of getAllComments(context.sourceCode)) {
 					if (comment.type !== "Block" || !comment.value.startsWith("*")) continue;
 					const endLine = comment.loc?.end?.line;
