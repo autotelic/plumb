@@ -94,6 +94,7 @@ export default defineConfig({
         "plumb/no-object-parameters": "off", // plumb:allow-off structural reader takes broad node objects
         "plumb/no-unsafe-dictionary-type": "off", // plumb:allow-off record values are the raw payload domain
         "plumb/no-unknown-parameters": "off", // plumb:allow-off reflection input is unknown by definition
+        "plumb/no-multiple-function-params": "off", // plumb:allow-off reflection reader takes node+key pairs
         // plumb:allow-off — bridge-module casts carry JSDoc SAFETY notes
         "plumb/no-chained-type-assertions": "off", // plumb:allow-off bridge casts documented in JSDoc
         "plumb/require-safety-comment-for-type-assertion": "off", // plumb:allow-off bridge casts documented in JSDoc
