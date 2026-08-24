@@ -49,66 +49,6 @@ function variableDeclarator(variable: Variable): ESTree.VariableDeclarator | nul
 		: null;
 }
 
-function isStableConstVariable(
-	sourceCode: SourceCode,
-	variable: Variable,
-	declarator: ESTree.VariableDeclarator,
-): boolean {
-	const declaration = ancestorsOf(sourceCode, declarator).at(-1);
-	return (
-		declaration?.type === "VariableDeclaration" &&
-		declaration.kind === "const" &&
-		variable.references.every((reference) => reference.init || !reference.isWrite())
-	);
-}
-
-function hasKnownEvidence(
-	sourceCode: SourceCode,
-	expression: ESTree.Expression,
-	visitedVariables = new Set<Variable>(),
-): boolean {
-	if (isKnownEvidenceExpression(expression)) return true;
-	const unwrapped = unwrapExpression(expression);
-	if (unwrapped.type !== "Identifier") return false;
-	const variable = resolveVariable(sourceCode, unwrapped);
-	if (variable === null || visitedVariables.has(variable)) return false;
-	const declarator = variableDeclarator(variable);
-	if (
-		declarator === null ||
-		declarator.init === null ||
-		!isStableConstVariable(sourceCode, variable, declarator)
-	) {
-		return false;
-	}
-	visitedVariables.add(variable);
-	return hasKnownEvidence(sourceCode, declarator.init, visitedVariables);
-}
-
-function annotationTarget(
-	annotation: ESTree.TSTypeAnnotation | null | undefined,
-	environment: TypeEnvironment,
-): WideningTarget | null {
-	return annotation === null || annotation === undefined
-		? null
-		: classifyWideningTarget(annotation.typeAnnotation, environment);
-}
-
-function enclosingFunction(sourceCode: SourceCode, node: ESTree.Node): FunctionExpression | null {
-	const ancestors = ancestorsOf(sourceCode, node);
-	for (let index = ancestors.length - 1; index >= 0; index--) {
-		const current = ancestors[index]!;
-		if (current.type === "Program") break;
-		if (
-			current.type === "ArrowFunctionExpression" ||
-			current.type === "FunctionDeclaration" ||
-			current.type === "FunctionExpression"
-		) {
-			return current;
-		}
-	}
-	return null;
-}
-
 function sourceKeyName(sourceCode: SourceCode, key: ESTree.PropertyKey): string {
 	if (key.type === "Identifier" || key.type === "PrivateIdentifier") return key.name;
 	if (key.type === "Literal") return String(key.value);
@@ -123,15 +63,6 @@ function functionName(sourceCode: SourceCode, owner: FunctionExpression | null):
 		return parent.id.name;
 	if (parent?.type === "MethodDefinition") return sourceKeyName(sourceCode, parent.key);
 	return "anonymous function";
-}
-
-function isEmptyObjectExpression(expression: ESTree.Expression): boolean {
-	const unwrapped = unwrapExpression(expression);
-	return unwrapped.type === "ObjectExpression" && unwrapped.properties.length === 0;
-}
-
-function isDictionaryAccumulatorTarget(destination: WideningTarget): boolean {
-	return destination.kind === "open dictionary" || destination.kind === "generic container";
 }
 
 function hasParentAssertion(sourceCode: SourceCode, node: ESTree.Node): boolean {
@@ -161,13 +92,34 @@ export const noKnownValueWideningRule = defineRule({
 			subject: string,
 		) => {
 			if (destination === null) return;
+			const unwrapped = unwrapExpression(expression);
+			const accumulator =
+				destination.kind === "open dictionary" || destination.kind === "generic container";
 			if (
-				isDictionaryAccumulatorTarget(destination) &&
-				isEmptyObjectExpression(expression)
+				accumulator &&
+				unwrapped.type === "ObjectExpression" &&
+				unwrapped.properties.length === 0
 			) {
 				return;
 			}
-			if (!hasKnownEvidence(context.sourceCode, expression)) return;
+			const visit = (expression: ESTree.Expression, visitedVariables: Set<Variable>): boolean => {
+				if (isKnownEvidenceExpression(expression)) return true;
+				const unwrapped = unwrapExpression(expression);
+				if (unwrapped.type !== "Identifier") return false;
+				const variable = resolveVariable(context.sourceCode, unwrapped);
+				if (variable === null || visitedVariables.has(variable)) return false;
+				const declarator = variableDeclarator(variable);
+				if (declarator === null || declarator.init === null) return false;
+				const declaration = ancestorsOf(context.sourceCode, declarator).at(-1);
+				const stableConst =
+					declaration?.type === "VariableDeclaration" &&
+					declaration.kind === "const" &&
+					variable.references.every((reference) => reference.init || !reference.isWrite());
+				if (!stableConst) return false;
+				visitedVariables.add(variable);
+				return visit(declarator.init, visitedVariables);
+			};
+			if (!visit(expression, new Set<Variable>())) return;
 			context.report({
 				node: expression,
 				messageId: "widening",
@@ -175,8 +127,12 @@ export const noKnownValueWideningRule = defineRule({
 			});
 		};
 
-		const targetFromAnnotation = (annotation: ESTree.TSTypeAnnotation | null | undefined) =>
-			environment === null ? null : annotationTarget(annotation, environment);
+		const targetFromAnnotation = (
+			annotation: ESTree.TSTypeAnnotation | null | undefined,
+		): WideningTarget | null =>
+			environment === null || annotation === null || annotation === undefined
+				? null
+				: classifyWideningTarget(annotation.typeAnnotation, environment);
 
 		return {
 			Program(node) {
@@ -220,7 +176,20 @@ export const noKnownValueWideningRule = defineRule({
 			},
 			ReturnStatement(node) {
 				if (node.argument === null) return;
-				const owner = enclosingFunction(context.sourceCode, node);
+				let owner: FunctionExpression | null = null;
+				const ancestors = ancestorsOf(context.sourceCode, node);
+				for (let index = ancestors.length - 1; index >= 0; index--) {
+					const current = ancestors[index]!;
+					if (current.type === "Program") break;
+					if (
+						current.type === "ArrowFunctionExpression" ||
+						current.type === "FunctionDeclaration" ||
+						current.type === "FunctionExpression"
+					) {
+						owner = current;
+						break;
+					}
+				}
 				reportFlow(
 					node.argument,
 					targetFromAnnotation(owner?.returnType),
