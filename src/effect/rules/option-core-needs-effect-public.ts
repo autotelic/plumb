@@ -4,7 +4,11 @@ import type { ESTree } from "@oxlint/plugins";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
 
-/** The exported name declared by this statement, if any. */
+/** The exported name declared by this statement, if any.
+ *
+ * @param {ESTree.Node} node - The export or declaration statement.
+ * @returns {string | null} The declared binding name, or null when anonymous.
+ */
 function exportedName(node: ESTree.Node): string | null {
 	if (node.type === "ExportNamedDeclaration") {
 		const declaration = node.declaration;
@@ -48,7 +52,7 @@ export const optionCoreNeedsEffectPublicRule = defineRule({
 		},
 			"ExportNamedDeclaration > VariableDeclaration > VariableDeclarator, ExportNamedDeclaration > FunctionDeclaration":
 				(node: ESTree.Node) => {
-					const declaratorId = node.type === "FunctionDeclaration" ? null : (node as ESTree.VariableDeclarator).id;
+					const declaratorId = node.type === "VariableDeclarator" ? node.id : null;
 					const name =
 						node.type === "FunctionDeclaration"
 							? (node.id?.name ?? null)
