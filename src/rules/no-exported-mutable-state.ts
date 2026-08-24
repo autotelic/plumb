@@ -19,22 +19,11 @@ const MUTATING_METHODS = new Set([
 	"unshift",
 ]);
 
-function declaredNames(statement: ESTree.Statement): string[] {
-	if (statement.type === "VariableDeclaration") {
-		return statement.declarations.flatMap((declarator) =>
-			declarator.id.type === "Identifier" ? [declarator.id.name] : [],
-		);
-	}
-	if (
-		(statement.type === "FunctionDeclaration" || statement.type === "ClassDeclaration") &&
-		statement.id !== null
-	) {
-		return [statement.id.name];
-	}
-	return [];
-}
-
-/** Root identifier of an assignment target / call receiver, if statically simple. */
+/** Root identifier of an assignment target / call receiver, if statically simple.
+ *
+ * @param {ESTree.Node} node - The target or receiver expression.
+ * @returns {string | null} The leftmost identifier's name, or null when dynamic.
+ */
 function rootIdentifier(node: ESTree.Node): string | null {
 	if (node.type === "Identifier") return node.name;
 	if (node.type === "MemberExpression" && !node.computed) return rootIdentifier(node.object);
@@ -79,7 +68,19 @@ export const noExportedMutableStateRule = defineRule({
 
 		return {
 			Program(node) {
-				topLevelNames = new Set(node.body.flatMap(declaredNames));
+				topLevelNames = new Set(
+					node.body.flatMap((statement) =>
+						statement.type === "VariableDeclaration"
+							? statement.declarations.flatMap((declarator) =>
+									declarator.id.type === "Identifier" ? [declarator.id.name] : [],
+								)
+							: (statement.type === "FunctionDeclaration" ||
+									statement.type === "ClassDeclaration") &&
+								  statement.id !== null
+								? [statement.id.name]
+								: [],
+					),
+				);
 			},
 			ExportNamedDeclaration(node) {
 				const declaration = node.declaration;
@@ -102,7 +103,8 @@ export const noExportedMutableStateRule = defineRule({
 			},
 			CallExpression(node) {
 				if (!isMutatingCall(node)) return;
-				checkTarget((node.callee as ESTree.MemberExpression).object);
+				if (node.callee.type !== "MemberExpression") return;
+				checkTarget(node.callee.object);
 			},
 		};
 	},
