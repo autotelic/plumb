@@ -2,6 +2,7 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
 
+import { isString } from "../shared/structural.ts";
 import { firstOptionRecord } from "../shared/rule-options.ts";
 
 interface Options {
@@ -20,7 +21,7 @@ interface FieldPluck {
  * @param {(node: ESTree.Node) => string} getText - Source text accessor from the lint context.
  * @returns {{ baseText: string; field: string }} Base text and field name, or null when not a simple pluck. */
 function directPluck(
-	expression: ESTree.Expression | null | undefined,
+	expression: ESTree.Expression | ESTree.SpreadElement | null | undefined,
 	getText: (node: ESTree.Node) => string,
 ): { baseText: string; field: string } | null {
 	if (expression === undefined || expression === null) return null;
@@ -69,20 +70,23 @@ export const noTransposedFieldReadsRule = defineRule({
 	},
 	createOnce(context) {
 		const option = firstOptionRecord(context.options);
-		// SAFETY: config JSON shape for this option is validated by meta.schema above.
-		// SAFETY: config JSON shape validated by meta.schema; groups is a tuple array.
-		const rawGroups = Array.isArray(option.groups)
-			// SAFETY: groups is validated as a tuple array by meta.schema.
-			? (option.groups as ReadonlyArray<readonly string[]>)
-			: undefined;
-		const groups = (rawGroups ?? []).map((fields) => ({
-			order: new Map(fields.map((field, index) => [field, index] as const)),
-			label: fields.join(" → "),
+		const groups = (Array.isArray(option.groups) ? option.groups : [])
+			.filter(
+				(group): group is readonly string[] =>
+					Array.isArray(group) && group.every((field) => isString(field)),
+			)
+			.map((fields) => ({
+				order: new Map<string, number>(
+					fields.map((field, index): [string, number] => [field, index]),
+				),
+				label: fields.join(" → "),
 		}));
 
 		const checkSequence = (
 			node: ESTree.Node,
-			parts: ReadonlyArray<{ expression: ESTree.Expression | null | undefined }>,
+			parts: ReadonlyArray<{
+		expression: ESTree.Expression | ESTree.SpreadElement | null | undefined;
+	}>,
 		): void => {
 			const getText = (target: ESTree.Node): string => context.sourceCode.getText(target);
 			const plucks: Array<FieldPluck> = [];
@@ -116,9 +120,7 @@ export const noTransposedFieldReadsRule = defineRule({
 
 		return {
 			CallExpression(node) {
-				// SAFETY: SpreadElement arguments are skipped by checkSequence internally.
-			// SAFETY: SpreadElement arguments are excluded by the type check above.
-		checkSequence(node, node.arguments.map((argument) => ({ expression: argument as ESTree.Expression })));
+				checkSequence(node, node.arguments.map((argument) => ({ expression: argument })));
 			},
 			ObjectExpression(node) {
 				checkSequence(
