@@ -44,6 +44,11 @@ const GENERIC_TERMS: ReadonlySet<string> = new Set([
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
 
+/** Split an identifier into its words across camelCase and separators.
+ *
+ * @param {string} name - Identifier or filename stem to split.
+ * @returns {Array<string>} Non-empty words of the name.
+ */
 function splitWords(name: string): Array<string> {
 	return name
 		.replace(/([a-z0-9])([A-Z])/gu, "$1 $2")
@@ -51,7 +56,11 @@ function splitWords(name: string): Array<string> {
 		.filter((word) => word.length > 0);
 }
 
-/** Module segment acting as the qualification prefix at qualified call sites. */
+/** Module segment acting as the qualification prefix at qualified call sites.
+ *
+ * @param {string} filename - Lint-context filename of the module.
+ * @returns {Array<string>} Words of the module's qualifying segment.
+ */
 function qualifierWords(filename: string): Array<string> {
 	const segments = filename.replaceAll("\\", "/").split("/");
 	const base = segments[segments.length - 1] ?? "";
@@ -62,41 +71,16 @@ function qualifierWords(filename: string): Array<string> {
 	return splitWords(stem);
 }
 
-/** True when every word of the name is generic, so qualification adds nothing either. */
+/** True when every word of the name is generic, so qualification adds nothing either.
+ *
+ * @param {Array<string>} words - Words of the exported symbol's name.
+ * @returns {boolean} True when no word carries domain meaning.
+ */
 function isAllGeneric(words: Array<string>): boolean {
 	return (
 		words.length > 0 &&
 		words.every((word) => GENERIC_TERMS.has(word.toLowerCase()))
 	);
-}
-
-interface NamedDeclaration {
-	id: ESTree.BindingIdentifier | null;
-}
-
-function declaredStatement(statement: ESTree.Statement): ESTree.Node | null {
-	return statement.type === "ExportNamedDeclaration" ||
-		statement.type === "ExportDefaultDeclaration"
-		? (statement.declaration ?? null)
-		: statement;
-}
-
-function namedIdentifiers(declaration: ESTree.Node): Array<ESTree.BindingIdentifier> {
-	if (
-		declaration.type === "FunctionDeclaration" ||
-		declaration.type === "ClassDeclaration" ||
-		declaration.type === "TSInterfaceDeclaration" ||
-		declaration.type === "TSTypeAliasDeclaration" ||
-		declaration.type === "TSEnumDeclaration"
-	) {
-		return declaration.id !== null ? [declaration.id] : [];
-	}
-	if (declaration.type === "VariableDeclaration") {
-		return declaration.declarations.flatMap((declarator) =>
-			declarator.id.type === "Identifier" ? [declarator.id] : [],
-		);
-	}
-	return [];
 }
 
 /** Exported symbols must resolve by grep in one hop; qualification by the module counts. */
@@ -124,9 +108,27 @@ export const noGenericExportNamesRule = defineRule({
 			},
 			Program(node) {
 				for (const statement of node.body) {
-					const declaration = declaredStatement(statement);
+					const declaration =
+						statement.type === "ExportNamedDeclaration" ||
+						statement.type === "ExportDefaultDeclaration"
+							? (statement.declaration ?? null)
+							: statement;
 					if (declaration === null) continue;
-					for (const id of namedIdentifiers(declaration)) {
+					const identifiers: Array<ESTree.BindingIdentifier> = [];
+					if (
+						declaration.type === "FunctionDeclaration" ||
+						declaration.type === "ClassDeclaration" ||
+						declaration.type === "TSInterfaceDeclaration" ||
+						declaration.type === "TSTypeAliasDeclaration" ||
+						declaration.type === "TSEnumDeclaration"
+					) {
+						if (declaration.id !== null) identifiers.push(declaration.id);
+					} else if (declaration.type === "VariableDeclaration") {
+						for (const declarator of declaration.declarations) {
+							if (declarator.id.type === "Identifier") identifiers.push(declarator.id);
+						}
+					}
+					for (const id of identifiers) {
 						const nameWords = splitWords(id.name);
 						if (!isAllGeneric(nameWords)) continue;
 						if (moduleSuppliesDomain) continue;
