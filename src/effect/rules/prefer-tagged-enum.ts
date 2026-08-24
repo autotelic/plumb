@@ -5,7 +5,11 @@ import { isRecordObject, isString } from "../../shared/structural.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
 
-/** Documented contract for hasLiteralTagProperty. */
+/** Whether a type-literal member declares a literal-typed `_tag` property.
+ *
+ * @param {ESTree.Node} member - A member of a type literal.
+ * @returns {boolean} True when the member is `_tag` with a string literal type.
+ */
 function hasLiteralTagProperty(member: ESTree.Node): boolean {
 	if (member.type !== "TSPropertySignature") return false;
 	const key = member.key;
@@ -20,7 +24,11 @@ function hasLiteralTagProperty(member: ESTree.Node): boolean {
 	return annotation.literal.type === "Literal" && isString(annotation.literal.value);
 }
 
-/** Documented contract for isTaggedLiteralMember. */
+/** Whether every union constituent is a type literal carrying a `_tag` property.
+ *
+ * @param {ESTree.TSType} member - One constituent of a union annotation.
+ * @returns {boolean} True when the member is a type literal with a `_tag`.
+ */
 function isTaggedLiteralMember(member: ESTree.TSType): boolean {
 	if (member.type !== "TSTypeLiteral") return false;
 	return member.members.some(hasLiteralTagProperty);
