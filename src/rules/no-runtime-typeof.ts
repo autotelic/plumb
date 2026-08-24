@@ -1,7 +1,8 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
-import { cast, readField } from "../shared/structural.ts";
+import { readField } from "../shared/structural.ts";
+import { ancestorsOf } from "../shared/ancestors.ts";
 
 import { firstOptionRecord } from "../shared/rule-options.ts";
 
@@ -36,9 +37,7 @@ export const noRuntimeTypeofRule = defineRule({
 				const allowInTypeGuards = option.allowInTypeGuards === true;
 				let insideTypeGuard = false;
 				if (allowInTypeGuards) {
-					const ancestors = cast<ReadonlyArray<ESTree.Node>>(
-						context.sourceCode.getAncestors(node),
-					);
+					const ancestors = ancestorsOf(context.sourceCode, node);
 					for (let index = ancestors.length - 1; index >= 0; index--) {
 						const current = ancestors[index]!;
 						if (current.type === "Program") break;
