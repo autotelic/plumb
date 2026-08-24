@@ -4,7 +4,12 @@ import { isString } from "../../shared/structural.ts";
 
 import type { ESTree } from "@oxlint/plugins";
 
-/** Documented contract for propertyName. */
+/**
+ * Static property name of an object property node.
+ *
+ * @param {ESTree.ObjectProperty} key - The property node to inspect.
+ * @returns {string | null} The identifier or literal string name, or null when computed.
+ */
 function propertyName(key: ESTree.ObjectProperty): string | null {
 	if (key.computed) return null;
 	if (key.key.type === "Identifier") return key.key.name;
