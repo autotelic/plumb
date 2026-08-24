@@ -4,21 +4,9 @@ import type { ESTree } from "@oxlint/plugins";
 
 import { ancestorsOf } from "../../shared/ancestors.ts";
 
-import { cast } from "../../shared/structural.ts";
-
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
 
 const EQUALITY_OPERATORS = new Set(["==", "===", "!=", "!=="]);
-
-/**
- * Discriminant reader for engine nodes the typings leave loose.
- *
- * @param {ESTree.Node} node - The engine node to read.
- * @returns {string} The node's `type` discriminant.
- */
-function typeOf(node: ESTree.Node): string {
-	return cast<{ readonly type: string }>(node).type;
-}
 
 /**
  * Whether the expression is a literal operand (literal or brace-less template).
@@ -27,9 +15,8 @@ function typeOf(node: ESTree.Node): string {
  * @returns {boolean} True when the node is literal-valued.
  */
 function isLiteral(node: ESTree.Node): boolean {
-	if (typeOf(node) === "Literal") return true;
-	if (typeOf(node) !== "TemplateLiteral") return false;
-	return cast<{ readonly expressions: ReadonlyArray<ESTree.Node> }>(node).expressions.length === 0;
+	if (node.type === "Literal") return true;
+	return node.type === "TemplateLiteral" && node.expressions.length === 0;
 }
 
 /**
@@ -69,7 +56,7 @@ export const preferEffectMatchRule = defineRule({
 			},
 			ConditionalExpression(node) {
 				const parent = ancestorsOf(context.sourceCode, node)[0];
-				if (parent !== undefined && typeOf(parent) === "ConditionalExpression") {
+				if (parent?.type === "ConditionalExpression") {
 					return;
 				}
 				const compared = comparedValue(context.sourceCode, node.test);
