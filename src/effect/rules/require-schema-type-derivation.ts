@@ -4,7 +4,12 @@ import type { ESTree } from "@oxlint/plugins";
 
 const STRUCT_PROPERTIES = new Set(["Struct", "TaggedStruct"]);
 
-/** Documented contract for isSchemaStructCall. */
+/**
+ * Whether an expression calls `Schema.struct`/`Schema.fields` on a schema-ish object.
+ *
+ * @param {ESTree.Expression | ESTree.SpreadElement | null} expression - The candidate call expression.
+ * @returns {boolean} True when the expression is a schema struct-style call.
+ */
 function isSchemaStructCall(expression: ESTree.Expression | ESTree.SpreadElement | null): boolean {
 	if (expression === null || expression.type !== "CallExpression") return false;
 	const callee = expression.callee;
@@ -16,7 +21,11 @@ function isSchemaStructCall(expression: ESTree.Expression | ESTree.SpreadElement
 	);
 }
 
-/** Fold a declared name to its stem so `RationalSchema`/`rational` and `rationalSchema` collide. */
+/** Fold a declared name to its stem so `RationalSchema`/`rational` and `rationalSchema` collide.
+ *
+ * @param {string} name - The declared name to fold.
+ * @returns {string} The case-insensitive comparison stem.
+ */
 function normaliseName(name: string): string {
 	const folded = name.replaceAll(/[^a-zA-Z0-9]/gu, "").toLowerCase();
 	return folded.endsWith("schema") ? folded.slice(0, -6) : folded;
