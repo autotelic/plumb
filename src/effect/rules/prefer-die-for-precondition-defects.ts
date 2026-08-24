@@ -7,7 +7,24 @@ import { ancestorsOf } from "../../shared/ancestors.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
 
-/** Whether the annotation references the Effect or Either channel (defect-capable). */
+/** Unwrap a tuple element to the type node it contributes to the annotation walk.
+ *
+ * @param {ESTree.TSTupleElement} element - Tuple element node.
+ * @returns {ESTree.TSType} The underlying type node.
+ */
+function tupleElementType(element: ESTree.TSTupleElement): ESTree.TSType {
+	if (element.type === "TSOptionalType" || element.type === "TSRestType") {
+		return element.typeAnnotation;
+	}
+	if ("elementType" in element) return tupleElementType(element.elementType);
+	return element;
+}
+
+/** Whether the annotation references the Effect or Either channel (defect-capable).
+ *
+ * @param {ESTree.Node} node - A function-like node whose return annotation is inspected.
+ * @returns {boolean} True when the return annotation mentions Effect or Either.
+ */
 function returnsEffectOrFailChannel(node: ESTree.Node): boolean {
 	const fn = cast<{ returnType?: { typeAnnotation?: ESTree.TSType } }>(node);
 	const annotation = fn.returnType?.typeAnnotation;
@@ -40,8 +57,7 @@ function returnsEffectOrFailChannel(node: ESTree.Node): boolean {
 				break;
 			case "TSTupleType":
 				for (const element of type.elementTypes) {
-					const payload = "elementType" in element ? element.elementType : element;
-					seen.push(payload as ESTree.TSType);
+					seen.push(tupleElementType(element));
 				}
 				break;
 			case "TSTypeOperator":
