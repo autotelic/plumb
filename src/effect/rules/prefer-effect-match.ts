@@ -10,30 +10,43 @@ const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
 
 const EQUALITY_OPERATORS = new Set(["==", "===", "!=", "!=="]);
 
-/** Discriminant reader for engine nodes the typings leave loose. */
-function typeOf(node: object): string {
+/**
+ * Discriminant reader for engine nodes the typings leave loose.
+ *
+ * @param {ESTree.Node} node - The engine node to read.
+ * @returns {string} The node's `type` discriminant.
+ */
+function typeOf(node: ESTree.Node): string {
 	return cast<{ readonly type: string }>(node).type;
 }
 
-function isLiteral(node: object): boolean {
+/**
+ * Whether the expression is a literal operand (literal or brace-less template).
+ *
+ * @param {ESTree.Node} node - The candidate expression node.
+ * @returns {boolean} True when the node is literal-valued.
+ */
+function isLiteral(node: ESTree.Node): boolean {
 	if (typeOf(node) === "Literal") return true;
 	if (typeOf(node) !== "TemplateLiteral") return false;
-	return cast<{ readonly expressions: ReadonlyArray<object> }>(node).expressions.length === 0;
+	return cast<{ readonly expressions: ReadonlyArray<ESTree.Node> }>(node).expressions.length === 0;
 }
 
-/** The compared operand of a literal equality test, rendered to source text. */
-function comparedValue(sourceCode: import("@oxlint/plugins").SourceCode, test: object): string | undefined {
-	if (typeOf(test) !== "BinaryExpression") return undefined;
-	const shape = cast<{
-		readonly operator?: unknown;
-		readonly left: object;
-		readonly right: object;
-	}>(test);
-	if (typeof shape.operator !== "string" || !EQUALITY_OPERATORS.has(shape.operator)) {
-		return undefined;
-	}
-	if (isLiteral(shape.left)) return sourceCode.getText(cast<ESTree.Node>(shape.right));
-	if (isLiteral(shape.right)) return sourceCode.getText(cast<ESTree.Node>(shape.left));
+/**
+ * The compared operand of a literal equality test, rendered to source text.
+ *
+ * @param {import("@oxlint/plugins").SourceCode} sourceCode - The rule's source-code accessor.
+ * @param {ESTree.Expression} test - The conditional's test expression.
+ * @returns {string | undefined} Source text of the non-literal side, or undefined.
+ */
+function comparedValue(
+	sourceCode: import("@oxlint/plugins").SourceCode,
+	test: ESTree.Expression,
+): string | undefined {
+	if (test.type !== "BinaryExpression") return undefined;
+	if (!EQUALITY_OPERATORS.has(test.operator)) return undefined;
+	if (isLiteral(test.left)) return sourceCode.getText(test.right);
+	if (isLiteral(test.right)) return sourceCode.getText(test.left);
 	return undefined;
 }
 /** Chained literal ternaries over one value re-implement `Match` without exhaustiveness checking. */
@@ -57,19 +70,17 @@ export const preferEffectMatchRule = defineRule({
 			ConditionalExpression(node) {
 				const parent = ancestorsOf(context.sourceCode, node)[0];
 				if (parent !== undefined && typeOf(parent) === "ConditionalExpression") {
-					// Report only the outermost link of the chain.
 					return;
 				}
 				const compared = comparedValue(context.sourceCode, node.test);
 				if (compared === undefined) return;
-				let alternate: object = node.alternate as unknown as object;
+				let alternate = node.alternate;
 				let literalChecks = 1;
-				while (typeOf(alternate) === "ConditionalExpression") {
-					const nextTest = cast<{ readonly test: object }>(alternate).test;
-					const alternateCompared = comparedValue(context.sourceCode, nextTest);
+				while (alternate.type === "ConditionalExpression") {
+					const alternateCompared = comparedValue(context.sourceCode, alternate.test);
 					if (alternateCompared !== compared) return;
 					literalChecks += 1;
-					alternate = cast<{ readonly alternate: object }>(alternate).alternate;
+					alternate = alternate.alternate;
 				}
 				if (literalChecks > 1) {
 					context.report({ node, messageId: "preferMatch" });
