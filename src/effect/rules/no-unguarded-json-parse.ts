@@ -158,10 +158,9 @@ function hasSafetyComment(sourceCode: SourceCode, node: ESTree.Node): boolean {
 	for (let index = 0; index < chain.length; index += 1) {
 		const current = chain[index]!;
 		if (
-			sourceCode.getCommentsBefore(current).some((comment) => {
-				const end = readField<{ readonly end?: number }>(comment, "end")?.end;
-				return end !== undefined && end <= node.start && /\bSAFETY\s*:/u.test(comment.value);
-			})
+			sourceCode
+				.getCommentsBefore(current)
+				.some((comment) => comment.end <= node.start && /\bSAFETY\s*:/u.test(comment.value))
 		) {
 			return true;
 		}
