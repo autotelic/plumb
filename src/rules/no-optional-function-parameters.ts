@@ -2,14 +2,7 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
 
-import { cast } from "../shared/structural.ts";
-
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
-
-/** Structural view of a function-like visitor node. */
-interface FunctionLike {
-	readonly params: ReadonlyArray<ESTree.ParamPattern>;
-}
 
 /**
  * Optional parameters hide undefined from the signature; require the union spelled out.
@@ -31,12 +24,16 @@ export const noOptionalFunctionParametersRule = defineRule({
 	},
 	createOnce(context) {
 		const check = (node: ESTree.Node): void => {
-			for (const parameter of cast<FunctionLike>(node).params) {
-				const unwrapped =
-					cast<{ readonly type: string }>(parameter).type === "TSParameterProperty"
-						? cast<{ readonly parameter: ESTree.ParamPattern }>(parameter).parameter
-						: parameter;
-				if (cast<{ readonly optional?: boolean }>(unwrapped).optional !== true) continue;
+			if (
+				node.type !== "FunctionDeclaration" &&
+				node.type !== "FunctionExpression" &&
+				node.type !== "ArrowFunctionExpression"
+			)
+				return;
+			for (const parameter of node.params) {
+				let pattern = parameter;
+				if (pattern.type === "TSParameterProperty") pattern = pattern.parameter;
+				if (pattern.optional !== true) continue;
 				context.report({ node: parameter, messageId: "optionalParameter" });
 			}
 		};
