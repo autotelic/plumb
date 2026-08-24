@@ -8,6 +8,7 @@ Extracted from the vendored `anti-slop` plugin in `autotelic/effect-safe-money` 
 
 - **`plumb`** — generic rules that reject low-evidence and low-signal implementation patterns (43 rules).
 - **`plumb-effect`** — opt-in rules for Effect service and Layer architecture (16 rules). Enable only in repos that depend on `effect`.
+- **`plumb/testing`** — RuleTester lifecycle adapter (`testableRule`, `wireRuleTester`, `createTester`) so `createOnce` rules with `before`/`after` hooks test correctly under the ESLint-compatible `create` path.
 
 ## Consuming
 

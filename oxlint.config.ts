@@ -85,6 +85,20 @@ export default defineConfig({
     // parameters are their purpose — they own the crossing between raw
     // AST/config payloads and typed rule logic.
     {
+      // The RuleTester adapter exists to expose an ESLint-style `create` (its
+      // entire purpose), and lifecycle orchestration suites are example-driven
+      // rather than property-driven.
+      files: ["src/testing/**"],
+      rules: {
+        "plumb-meta/require-create-once": "off", // plumb:allow-off compat adapter owns the create crossing
+        "plumb/prefer-property-tests": "off", // plumb:allow-off lifecycle sequencing is example-driven
+        "plumb/no-reinterpret-cast": "off", // plumb:allow-off typed bridge to the tester's call shape
+        "plumb/no-chained-type-assertions": "off", // plumb:allow-off same bridge
+        "plumb/require-safety-comment-for-type-assertion": "off", // plumb:allow-off same bridge
+        "plumb/no-unknown-returns": "off", // plumb:allow-off passthrough fragments re-enter typed land at callsites
+      },
+    },
+    {
       files: [
         "src/shared/structural.ts",
         "src/shared/rule-options.ts",
