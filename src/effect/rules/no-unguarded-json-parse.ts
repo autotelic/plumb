@@ -15,19 +15,12 @@ const commentOwnerKinds = new Set([
 	"VariableDeclaration",
 ]);
 
-function isJsonParseCall(node: ESTree.CallExpression): boolean {
-	const callee = node.callee;
-	return (
-		callee.type === "MemberExpression" &&
-		!callee.computed &&
-		callee.object.type === "Identifier" &&
-		callee.object.name === "JSON" &&
-		callee.property.type === "Identifier" &&
-		callee.property.name === "parse"
-	);
-}
-
-/** Whether the nearest annotated function returns through the Effect/Either/Option channel. */
+/** Whether the nearest annotated function returns through the Effect/Either/Option channel.
+ *
+ * @param {SourceCode} sourceCode - The rule's source-code accessor.
+ * @param {ESTree.Node} node - The JSON.parse call expression.
+ * @returns {boolean} True when an enclosing function declares a channel return type.
+ */
 function insideChannelReturningFunction(sourceCode: SourceCode, node: ESTree.Node): boolean {
 	const chain = ancestorsOf(sourceCode, node);
 	for (let index = chain.length - 1; index >= 0; index--) {
@@ -48,7 +41,11 @@ function insideChannelReturningFunction(sourceCode: SourceCode, node: ESTree.Nod
 	return false;
 }
 
-/** Render an annotation to text so qualified names like Effect.Effect match. */
+/** Render an annotation to text so qualified names like Effect.Effect match.
+ *
+ * @param {ESTree.TSType} type - The type node to render.
+ * @returns {string} A space-joined textual sketch of the annotation.
+ */
 function annotationText(type: ESTree.TSType): string {
 	switch (type.type) {
 		case "TSTypeReference": {
@@ -66,11 +63,16 @@ function annotationText(type: ESTree.TSType): string {
 		case "TSUnionType":
 		case "TSIntersectionType":
 			return type.types.map(annotationText).join(" ");
-		case "TSTupleType":
-			return type.elementTypes.map((element) => {
-				const payload = "elementType" in element ? element.elementType : element;
-				return annotationText(payload as ESTree.TSType);
-			}).join(" ");
+		case "TSTupleType": {
+			const render = (element: ESTree.TSTupleElement): string => {
+				if ("elementType" in element) return render(element.elementType);
+				if (element.type === "TSOptionalType" || element.type === "TSRestType") {
+					return annotationText(element.typeAnnotation);
+				}
+				return annotationText(element);
+			};
+			return type.elementTypes.map(render).join(" ");
+		}
 		case "TSTypeOperator":
 			return annotationText(type.typeAnnotation);
 		case "TSArrayType":
@@ -80,6 +82,12 @@ function annotationText(type: ESTree.TSType): string {
 	}
 }
 
+/**
+ * Whether a call targets Effect.try or Effect.trySync.
+ *
+ * @param {ESTree.Node} node - The candidate call expression.
+ * @returns {boolean} True when the call is an Effect.try family invocation.
+ */
 function isEffectTryCall(node: ESTree.Node): boolean {
 	if (node.type !== "CallExpression") return false;
 	const callee = node.callee;
@@ -100,6 +108,10 @@ function isEffectTryCall(node: ESTree.Node): boolean {
  * ({ try: () => ..., catch: ... }) counts as guarded: climb past pure
  * containers (Property, ObjectExpression, ArrayExpression) and resume the
  * walk at the container exit, re-processing it.
+ *
+ * @param {SourceCode} sourceCode - The rule's source-code accessor.
+ * @param {ESTree.Node} node - The JSON.parse call expression.
+ * @returns {boolean} True when the parse site is guarded.
  */
 function isGuardedParse(sourceCode: SourceCode, node: ESTree.Node): boolean {
 	const chain = [...ancestorsOf(sourceCode, node)].reverse();
@@ -134,14 +146,22 @@ function isGuardedParse(sourceCode: SourceCode, node: ESTree.Node): boolean {
 	return false;
 }
 
+/**
+ * Whether a SAFETY comment covers this parse site or one of its statement owners.
+ *
+ * @param {SourceCode} sourceCode - The rule's source-code accessor.
+ * @param {ESTree.Node} node - The JSON.parse call expression.
+ * @returns {boolean} True when an applicable SAFETY justification exists.
+ */
 function hasSafetyComment(sourceCode: SourceCode, node: ESTree.Node): boolean {
 	const chain: Array<ESTree.Node> = [node, ...[...ancestorsOf(sourceCode, node)].reverse()];
 	for (let index = 0; index < chain.length; index += 1) {
 		const current = chain[index]!;
 		if (
-			sourceCode
-				.getCommentsBefore(current)
-				.some((comment) => (comment as unknown as { end: number }).end <= node.start && /\bSAFETY\s*:/u.test(comment.value))
+			sourceCode.getCommentsBefore(current).some((comment) => {
+				const end = readField<{ readonly end?: number }>(comment, "end")?.end;
+				return end !== undefined && end <= node.start && /\bSAFETY\s*:/u.test(comment.value);
+			})
 		) {
 			return true;
 		}
@@ -174,7 +194,16 @@ export const noUnguardedJsonParseRule = defineRule({
 			if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
 		},
 			CallExpression(node) {
-				if (!isJsonParseCall(node)) return;
+				const callee = node.callee;
+				if (
+					callee.type !== "MemberExpression" ||
+					callee.computed ||
+					callee.object.type !== "Identifier" ||
+					callee.object.name !== "JSON" ||
+					callee.property.type !== "Identifier" ||
+					callee.property.name !== "parse"
+				)
+					return;
 				if (!insideChannelReturningFunction(context.sourceCode, node)) return;
 				if (isGuardedParse(context.sourceCode, node)) return;
 				if (hasSafetyComment(context.sourceCode, node)) return;
