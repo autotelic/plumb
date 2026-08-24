@@ -14,6 +14,9 @@ function isNullableKeyword(type: ESTree.TSType): boolean {
 /**
  * Returns whether a union pairs a nullable member with at least one real
  * value type (T | null/undefined, not void | undefined).
+ *
+ * @param {ESTree.TSUnionType} union - The union annotation to inspect.
+ * @returns {boolean} True when the union mixes null/undefined with value types.
  */
 function nullableWithValue(union: ESTree.TSUnionType): boolean {
 	let nullable = false;
@@ -31,10 +34,6 @@ function nullableWithValue(union: ESTree.TSUnionType): boolean {
 function asUnion(type: ESTree.TSType): ESTree.TSUnionType | null {
 	if (type.type === "TSParenthesizedType") return asUnion(type.typeAnnotation);
 	return type.type === "TSUnionType" ? type : null;
-}
-
-function isGetOrThrowMember(node: ESTree.MemberExpression): boolean {
-	return !node.computed && node.property.type === "Identifier" && node.property.name === "getOrThrow";
 }
 
 /** Guarded operations must surface absence as Option, not null/undefined unions or crashes. */
@@ -79,7 +78,13 @@ export const guardedOpMustReturnOptionRule = defineRule({
 			FunctionDeclaration: checkReturnType,
 			FunctionExpression: checkReturnType,
 			MemberExpression(node) {
-				if (isGetOrThrowMember(node)) context.report({ node, messageId: "optionEscape" });
+				if (
+					!node.computed &&
+					node.property.type === "Identifier" &&
+					node.property.name === "getOrThrow"
+				) {
+					context.report({ node, messageId: "optionEscape" });
+				}
 			},
 			Identifier(node) {
 				if (node.name !== "getOrThrow") return;
