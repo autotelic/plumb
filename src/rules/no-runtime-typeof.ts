@@ -1,31 +1,9 @@
 import { defineRule } from "@oxlint/plugins";
 
-import type { ESTree, SourceCode } from "@oxlint/plugins";
+import type { ESTree } from "@oxlint/plugins";
 import { cast, readField } from "../shared/structural.ts";
 
 import { firstOptionRecord } from "../shared/rule-options.ts";
-
-type RuntimeFunction = ESTree.ArrowFunctionExpression | ESTree.Function;
-
-function isRuntimeFunction(node: ESTree.Node): node is RuntimeFunction {
-	return (
-		node.type === "ArrowFunctionExpression" ||
-		node.type === "FunctionDeclaration" ||
-		node.type === "FunctionExpression"
-	);
-}
-
-function isInsideTypeGuard(node: ESTree.Node, sourceCode: SourceCode): boolean {
-	const ancestors = cast<ReadonlyArray<ESTree.Node>>(sourceCode.getAncestors(node));
-	for (let index = ancestors.length - 1; index >= 0; index--) {
-		const current = ancestors[index]!;
-		if (current.type === "Program") break;
-		if (isRuntimeFunction(current)) {
-			return current.returnType?.typeAnnotation.type === "TSTypePredicate";
-		}
-	}
-	return false;
-}
 
 /** Disallow runtime typeof checks that narrow unparsed values instead of decoding them. */
 export const noRuntimeTypeofRule = defineRule({
@@ -53,14 +31,29 @@ export const noRuntimeTypeofRule = defineRule({
 	createOnce(context) {
 		return {
 			UnaryExpression(node) {
+				if (node.operator !== "typeof") return;
 				const option = firstOptionRecord(context.options);
 				const allowInTypeGuards = option.allowInTypeGuards === true;
-				if (
-					node.operator === "typeof" &&
-					(!allowInTypeGuards || !isInsideTypeGuard(node, context.sourceCode))
-				) {
-					context.report({ node, messageId: "runtimeTypeof" });
+				let insideTypeGuard = false;
+				if (allowInTypeGuards) {
+					const ancestors = cast<ReadonlyArray<ESTree.Node>>(
+						context.sourceCode.getAncestors(node),
+					);
+					for (let index = ancestors.length - 1; index >= 0; index--) {
+						const current = ancestors[index]!;
+						if (current.type === "Program") break;
+						if (
+							current.type === "ArrowFunctionExpression" ||
+							current.type === "FunctionDeclaration" ||
+							current.type === "FunctionExpression"
+						) {
+							insideTypeGuard =
+								current.returnType?.typeAnnotation.type === "TSTypePredicate";
+							break;
+						}
+					}
 				}
+				if (!insideTypeGuard) context.report({ node, messageId: "runtimeTypeof" });
 			},
 		};
 	},
