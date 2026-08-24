@@ -1,7 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
-import { cast, readField } from "../shared/structural.ts";
+import { readField } from "../shared/structural.ts";
 
 /**
  * Dense representations are sliceable on any axis because their parts are

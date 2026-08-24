@@ -2,7 +2,7 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree, SourceCode } from "@oxlint/plugins";
 
-import { cast, readField } from "../shared/structural.ts";
+import { readField } from "../shared/structural.ts";
 
 import { ancestorsOf } from "../shared/ancestors.ts";
 

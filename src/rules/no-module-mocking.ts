@@ -1,8 +1,6 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree, Scope, SourceCode, Variable } from "@oxlint/plugins";
-import { cast } from "../shared/structural.ts";
-
 import { ancestorsOf } from "../shared/ancestors.ts";
 
 const moduleMockMethods = new Set(["doMock", "mock", "unstable_mockModule"]);

@@ -67,37 +67,7 @@ export function getAllComments(sourceCode: SourceCode): CommentLike[] {
 	return sourceCode.getAllComments() as CommentLike[];
 }
 
-/**
- * Strip parenthesized wrappers while preserving the caller's node type.
- *
- * SAFETY: parenthesized wrappers are transparent containers; the runtime value
- * is unchanged, only the static view is restored.
- *
- * @template T - The concrete expression type passed by the caller.
- * @param {T} expression - The possibly parenthesized expression.
- * @returns {T} The innermost non-parenthesized expression.
- */
-export function unwrapParentheses<T extends ESTree.Expression>(expression: T): T {
-	let current: ESTree.Expression = expression;
-	while (current.type === "ParenthesizedExpression") {
-		current = current.expression;
-	}
-	return current as T;
-}
 
-/**
- * Reinterpret an opaquely-typed value as T.
- *
- * SAFETY: the single sanctioned escape hatch for AST shapes the engine types
- * loosely; callers document the verified invariant adjacent to each call.
- *
- * @template T - The target view type.
- * @param {unknown} value - The opaquely-typed engine value.
- * @returns {T} The same value viewed as T.
- */
-export function cast<T>(value: unknown): T {
-	return value as T;
-}
 
 /** Discriminate object-valued fields of an AST node (child containers).
  *

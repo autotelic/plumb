@@ -3,8 +3,6 @@ import { defineRule } from "@oxlint/plugins";
 import type { ESTree, SourceCode } from "@oxlint/plugins";
 
 import { ancestorsOf } from "../../shared/ancestors.ts";
-import { cast } from "../../shared/structural.ts";
-
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
 
 /** Whether the member chain ends in the Option namespace, e.g. `Option` or `O`.
