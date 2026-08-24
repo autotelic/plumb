@@ -2,14 +2,11 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
 
-function declaredStatement(statement: ESTree.Statement): ESTree.Node | null {
-	return statement.type === "ExportNamedDeclaration" ||
-		statement.type === "ExportDefaultDeclaration"
-		? (statement.declaration ?? null)
-		: statement;
-}
-
-/** True for the numeric ordering sentinels -1, 0 and 1 in a type position. */
+/** True for the numeric ordering sentinels -1, 0 and 1 in a type position.
+ *
+ * @param {ESTree.TSType} type - The union constituent to inspect.
+ * @returns {boolean} True when the type is one of the sentinel literals.
+ */
 function isSentinelLiteral(type: ESTree.TSType): boolean {
 	if (type.type !== "TSLiteralType") return false;
 	const literal = type.literal;
@@ -23,7 +20,11 @@ function isSentinelLiteral(type: ESTree.TSType): boolean {
 	return literal.type === "Literal" && (literal.value === 0 || literal.value === 1);
 }
 
-/** True for a reference to Effect's Ordering (or its -1 | 0 | 1 spelling). */
+/** True for a reference to Effect's Ordering (or its -1 | 0 | 1 spelling).
+ *
+ * @param {ESTree.TSType} type - The annotation to inspect.
+ * @returns {boolean} True when the type names Ordering.
+ */
 function isOrderingReference(type: ESTree.TSType): boolean {
 	if (type.type !== "TSTypeReference") return false;
 	const name = type.typeName;
@@ -65,7 +66,11 @@ export const requirePublishedOrderRule = defineRule({
 				let hasPublishedOrder = false;
 				const comparators: Array<{ name: string; node: ESTree.Node }> = [];
 				for (const statement of node.body) {
-					const declaration = declaredStatement(statement);
+					const declaration =
+						statement.type === "ExportNamedDeclaration" ||
+						statement.type === "ExportDefaultDeclaration"
+							? (statement.declaration ?? null)
+							: statement;
 					if (declaration?.type === "VariableDeclaration") {
 						for (const declarator of declaration.declarations) {
 							if (declarator.id.type !== "Identifier") continue;
