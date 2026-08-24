@@ -6,19 +6,28 @@ import { cast } from "../../shared/structural.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
 
-/** Discriminant reader for engine nodes the typings leave loose. */
-function typeOf(node: object): string {
+/** Discriminant reader for engine nodes the typings leave loose.
+ *
+ * @param {ESTree.Node} node - The engine node to read.
+ * @returns {string} The node's `type` discriminant.
+ */
+function typeOf(node: ESTree.Node): string {
 	return cast<{ readonly type: string }>(node).type;
 }
 
-/** Documented contract for isLayerProvide. */
-function isLayerProvide(node: object): boolean {
+/**
+ * Whether a call targets `Layer.provide`.
+ *
+ * @param {ESTree.Node} node - The candidate call expression.
+ * @returns {boolean} True when the call is a Layer.provide invocation.
+ */
+function isLayerProvide(node: ESTree.Node): boolean {
 	if (typeOf(node) !== "CallExpression") return false;
-	const callee = cast<{ readonly callee: object }>(node).callee;
+	const callee = cast<{ readonly callee: ESTree.Node }>(node).callee;
 	if (typeOf(callee) !== "MemberExpression") return false;
-	const object = cast<{ readonly object: object }>(callee).object;
+	const object = cast<{ readonly object: ESTree.Node }>(callee).object;
 	if (typeOf(object) !== "Identifier") return false;
-	const property = cast<{ readonly property: object; readonly computed?: boolean }>(callee);
+	const property = cast<{ readonly property: ESTree.Node; readonly computed?: boolean }>(callee);
 	return (
 		property.computed !== true &&
 		cast<{ readonly name: string }>(object).name === "Layer" &&
@@ -46,9 +55,9 @@ export const noNestedLayerProvideRule = defineRule({
 			CallExpression(node) {
 				if (!isLayerProvide(node)) return;
 				for (const argument of node.arguments) {
-					if (isLayerProvide(argument as object)) {
+					if (isLayerProvide(argument)) {
 						context.report({
-							node: argument as ESTree.Node,
+							node: argument,
 							messageId: "nestedProvide",
 						});
 					}
