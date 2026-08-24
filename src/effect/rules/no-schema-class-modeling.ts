@@ -32,8 +32,7 @@ export const noSchemaClassModelingRule = defineRule({
 	createOnce(context) {
 		const checkExpression = (callee: ESTree.Expression | null | undefined): void => {
 			if (!isBannedSchemaStatic(callee)) return;
-			const member = callee as Extract<ESTree.Expression, { type: "MemberExpression" }>;
-			const property = member.property;
+			const property = callee.property;
 			if (property.type !== "Identifier") return;
 			context.report({
 				node: callee,
@@ -47,11 +46,10 @@ export const noSchemaClassModelingRule = defineRule({
 			},
 			ClassDeclaration(node) {
 				if (!isBannedSchemaStatic(node.superClass)) return;
-				const member = node.superClass as Extract<ESTree.Expression, { type: "MemberExpression" }>;
-				const property = member.property;
+				const property = node.superClass.property;
 				if (property.type !== "Identifier") return;
 				context.report({
-					node: member,
+					node: node.superClass,
 					messageId: "schemaClass",
 					data: { name: property.name },
 				});
