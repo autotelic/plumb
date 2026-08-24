@@ -11,7 +11,11 @@ type ParameterOwner =
   | ESTree.TSFunctionType
   | ESTree.TSMethodSignature;
 
-/** Documented contract for parameterAnnotation. */
+/** Unwrap parameter-property/rest/default wrappers to the declared annotation.
+ *
+ * @param {Parameter} parameter - The parameter pattern to inspect.
+ * @returns {ESTree.TSTypeAnnotation | null | undefined} The declared type annotation, if any.
+ */
 function parameterAnnotation(parameter: Parameter): ESTree.TSTypeAnnotation | null | undefined {
   if (parameter.type === "TSParameterProperty") {
     return parameterAnnotation(parameter.parameter);
@@ -25,16 +29,21 @@ function parameterAnnotation(parameter: Parameter): ESTree.TSTypeAnnotation | nu
   return parameter.typeAnnotation;
 }
 
-/** Documented contract for parameterName. */
-function parameterName(parameter: Parameter, sourceText: string): string {
+/** Render a parameter's source name for reporting.
+ *
+ * @param {{ parameter: Parameter; sourceText: string }} payload - The pattern and its source text.
+ * @returns {string} The bound identifier's name, or the raw unknown-annotated text.
+ */
+function parameterName(payload: { parameter: Parameter; sourceText: string }): string {
+  const { parameter, sourceText } = payload;
   if (parameter.type === "TSParameterProperty") {
-    return parameterName(parameter.parameter, sourceText);
+    return parameterName({ parameter: parameter.parameter, sourceText });
   }
   if (parameter.type === "AssignmentPattern") {
-    return parameterName(parameter.left, sourceText);
+    return parameterName({ parameter: parameter.left, sourceText });
   }
   if (parameter.type === "RestElement") {
-    return parameterName(parameter.argument, sourceText);
+    return parameterName({ parameter: parameter.argument, sourceText });
   }
   return parameter.type === "Identifier"
     ? parameter.name
@@ -59,7 +68,10 @@ export const noUnknownParametersRule = defineRule({
       for (const parameter of node.params) {
         const annotation = parameterAnnotation(parameter);
         if (annotation?.typeAnnotation.type !== "TSUnknownKeyword") continue;
-        const name = parameterName(parameter, context.sourceCode.getText(parameter));
+        const name = parameterName({
+          parameter,
+          sourceText: context.sourceCode.getText(parameter),
+        });
         if (name === "cause") continue;
         context.report({
           node: annotation.typeAnnotation,
