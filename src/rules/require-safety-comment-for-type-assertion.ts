@@ -1,7 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree, SourceCode } from "@oxlint/plugins";
-import { cast } from "../shared/structural.ts";
+import { ancestorsOf } from "../shared/ancestors.ts";
 
 type TypeAssertion = ESTree.TSAsExpression | ESTree.TSTypeAssertion;
 
@@ -33,9 +33,7 @@ export const requireSafetyCommentForTypeAssertionRule = defineRule({
         node.typeAnnotation.typeName.type === "Identifier" &&
         node.typeAnnotation.typeName.name === "const";
       if (isConstAssertion) return;
-      const ancestors = cast<ReadonlyArray<ESTree.Node>>(
-        context.sourceCode.getAncestors(node),
-      );
+      const ancestors = ancestorsOf(context.sourceCode, node);
       const chain: Array<ESTree.Node> = [node, ...[...ancestors].reverse()];
       let justified = false;
       for (let index = 0; index < chain.length; index += 1) {
