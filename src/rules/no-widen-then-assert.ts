@@ -96,31 +96,6 @@ function assertedExpression(
   return unwrapExpressionParentheses(node.expression);
 }
 
-function assertionFromExpression(
-  expression: ESTree.Expression,
-): ESTree.TSAsExpression | ESTree.TSTypeAssertion | null {
-  const unwrapped = unwrapExpressionParentheses(expression);
-  return unwrapped.type === "TSAsExpression" || unwrapped.type === "TSTypeAssertion"
-    ? unwrapped
-    : null;
-}
-
-function normalizedTypeText(sourceText: string, type: ESTree.TSType): string {
-  return sourceText.slice(type.start, type.end).replaceAll(/\s+/gu, "");
-}
-
-function typesHaveSameSyntax(
-  sourceText: string,
-  left: ESTree.TSType | null,
-  right: ESTree.TSType,
-): boolean {
-  return (
-    left !== null &&
-    normalizedTypeText(sourceText, unwrapTypeParentheses(left)) ===
-      normalizedTypeText(sourceText, unwrapTypeParentheses(right))
-  );
-}
-
 function isDefinitelyObjectType(type: ESTree.TSType): boolean {
   const unwrapped = unwrapTypeParentheses(type);
   switch (unwrapped.type) {
@@ -267,60 +242,6 @@ function knownValueEvidence(
   );
 }
 
-function widenedBinding(
-  sourceCode: SourceCode,
-  variable: Variable,
-  scopes: Parameters<typeof resolvedVariableForIdentifier>[0],
-): {
-  readonly broadKind: BroadTypeKind;
-  readonly evidence: KnownValueEvidence;
-  readonly declaredAt: number;
-  readonly boundary: ESTree.Node | null;
-} | null {
-  const declarator = variableDeclarator(variable);
-  const declaration = declarator === null ? null : ancestorsOf(sourceCode, declarator).at(-1);
-  if (
-    declarator === null ||
-    declaration === null ||
-    declaration?.type !== "VariableDeclaration" ||
-    declaration?.kind !== "const" ||
-    declarator.id.type !== "Identifier" ||
-    declarator.init === null ||
-    variable.references.some((reference) => reference.isWrite() && !reference.init)
-  ) {
-    return null;
-  }
-
-  const boundary = functionBoundary(sourceCode, declarator);
-  const declaredType = declarator.id.typeAnnotation?.typeAnnotation;
-  const initializerAssertion = assertionFromExpression(declarator.init);
-  const initializerBroadKind =
-    initializerAssertion === null ? null : broadTypeKind(initializerAssertion.typeAnnotation);
-  const declaredBroadKind = declaredType === undefined ? null : broadTypeKind(declaredType);
-  const broadKind = declaredBroadKind ?? initializerBroadKind;
-  if (broadKind === null) return null;
-
-  const originalExpression =
-    initializerAssertion !== null && initializerBroadKind !== null
-      ? assertedExpression(initializerAssertion)
-      : declarator.init;
-  const evidence = knownValueEvidence(sourceCode, originalExpression, scopes, boundary, new Set([variable]));
-  return evidence === null ? null : { broadKind, evidence, declaredAt: declarator.end, boundary };
-}
-
-function assertionIsNarrower(
-  sourceText: string,
-  broadKind: BroadTypeKind,
-  evidence: KnownValueEvidence,
-  assertedType: ESTree.TSType,
-): boolean {
-  if (broadTypeKind(assertedType) !== null) return false;
-  if (broadKind === "top") return true;
-  if (typesHaveSameSyntax(sourceText, evidence.type, assertedType)) return true;
-  if (broadKind === "object") return isDefinitelyObjectType(assertedType);
-  return isDefinitelyNarrowerRecordType(assertedType);
-}
-
 /** Detect immutable local bindings that erase a known type and are later asserted back to a narrower type. */
 export const noWidenThenAssertRule = defineRule({
   meta: {
@@ -343,19 +264,67 @@ export const noWidenThenAssertRule = defineRule({
 
       const variable = resolvedVariableForIdentifier(scopes, expression);
       if (variable === null) return;
-      const widened = widenedBinding(context.sourceCode, variable, scopes);
+
+      const declarator = variableDeclarator(variable);
+      const declaration = declarator === null ? null : ancestorsOf(context.sourceCode, declarator).at(-1);
       if (
-        widened === null ||
-        node.start <= widened.declaredAt ||
-        functionBoundary(context.sourceCode, node) !== widened.boundary ||
-        !assertionIsNarrower(
-          context.sourceCode.text,
-          widened.broadKind,
-          widened.evidence,
-          node.typeAnnotation,
-        )
+        declarator === null ||
+        declaration === null ||
+        declaration?.type !== "VariableDeclaration" ||
+        declaration?.kind !== "const" ||
+        declarator.id.type !== "Identifier" ||
+        declarator.init === null ||
+        variable.references.some((reference) => reference.isWrite() && !reference.init)
       ) {
         return;
+      }
+
+      const boundary = functionBoundary(context.sourceCode, declarator);
+      const declaredType = declarator.id.typeAnnotation?.typeAnnotation;
+      const initializerUnwrapped = unwrapExpressionParentheses(declarator.init);
+      const initializerAssertion =
+        initializerUnwrapped.type === "TSAsExpression" || initializerUnwrapped.type === "TSTypeAssertion"
+          ? initializerUnwrapped
+          : null;
+      const initializerBroadKind =
+        initializerAssertion === null ? null : broadTypeKind(initializerAssertion.typeAnnotation);
+      const declaredBroadKind = declaredType === undefined ? null : broadTypeKind(declaredType);
+      const broadKind = declaredBroadKind ?? initializerBroadKind;
+      if (broadKind === null) return;
+
+      const originalExpression =
+        initializerAssertion !== null && initializerBroadKind !== null
+          ? assertedExpression(initializerAssertion)
+          : declarator.init;
+      const evidence = knownValueEvidence(
+        context.sourceCode,
+        originalExpression,
+        scopes,
+        boundary,
+        new Set([variable]),
+      );
+      if (evidence === null) return;
+
+      if (node.start <= declarator.end || functionBoundary(context.sourceCode, node) !== boundary) {
+        return;
+      }
+
+      const assertedType = node.typeAnnotation;
+      if (broadTypeKind(assertedType) !== null) return;
+      if (broadKind !== "top") {
+        const normalized = (type: ESTree.TSType): string =>
+          context.sourceCode.text.slice(type.start, type.end).replaceAll(/\s+/gu, "");
+        const sameSyntax =
+          evidence.type !== null &&
+          normalized(unwrapTypeParentheses(evidence.type)) ===
+            normalized(unwrapTypeParentheses(assertedType));
+        if (!sameSyntax) {
+          if (broadKind === "object") {
+            if (!isDefinitelyObjectType(assertedType)) return;
+          } else if (!isDefinitelyNarrowerRecordType(assertedType)) {
+            return;
+          }
+        }
       }
 
       context.report({
