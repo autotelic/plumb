@@ -2,14 +2,11 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
 
-function declaredStatement(statement: ESTree.Statement): ESTree.Node | null {
-	return statement.type === "ExportNamedDeclaration" ||
-		statement.type === "ExportDefaultDeclaration"
-		? (statement.declaration ?? null)
-		: statement;
-}
-
-/** True for a heritage clause referencing Brand.Brand (any ESTree spelling). */
+/** True for a heritage clause referencing Brand.Brand (any ESTree spelling).
+ *
+ * @param {ESTree.TSTypeName | ESTree.Expression | ESTree.PrivateIdentifier} expression - Heritage clause expression.
+ * @returns {boolean} True when the expression is the Brand.Brand reference.
+ */
 function isBrandBrandReference(
 	expression: ESTree.TSTypeName | ESTree.Expression | ESTree.PrivateIdentifier,
 ): boolean {
@@ -49,7 +46,11 @@ export const preferPayloadBrandRule = defineRule({
 		return {
 			Program(node) {
 				for (const statement of node.body) {
-					const declaration = declaredStatement(statement);
+					const declaration =
+						statement.type === "ExportNamedDeclaration" ||
+						statement.type === "ExportDefaultDeclaration"
+							? (statement.declaration ?? null)
+							: statement;
 					if (declaration?.type !== "TSInterfaceDeclaration") continue;
 					const heritages = declaration.extends ?? [];
 					if (heritages.length !== 1) continue;
