@@ -5,15 +5,6 @@ import type { ESTree } from "@oxlint/plugins";
 const SERVICE_CONSTRUCTOR_NAME = /^make[A-Z]/u;
 const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 
-function isProjectLocalImport(source: string): boolean {
-	return source.startsWith("./") || source.startsWith("../");
-}
-
-function getImportedName(specifier: ESTree.ImportSpecifier): string {
-	if (specifier.imported.type === "Identifier") return specifier.imported.name;
-	return specifier.imported.value;
-}
-
 /** Keep dependency-bearing Effect service constructors local to their owning capability modules. */
 export const noServiceConstructorImportsRule = defineRule({
 	meta: {
@@ -35,12 +26,16 @@ export const noServiceConstructorImportsRule = defineRule({
 				isTestFile = TEST_FILE.test(context.filename.replaceAll("\\", "/"));
 			},
 			ImportDeclaration(node) {
-				if (isTestFile || !isProjectLocalImport(node.source.value)) return;
+				const source = node.source.value;
+				if (isTestFile || !(source.startsWith("./") || source.startsWith("../"))) return;
 
 				for (const specifier of node.specifiers) {
 					if (specifier.type !== "ImportSpecifier") continue;
 
-					const importedName = getImportedName(specifier);
+					const importedName =
+						specifier.imported.type === "Identifier"
+							? specifier.imported.name
+							: specifier.imported.value;
 					if (!SERVICE_CONSTRUCTOR_NAME.test(importedName)) continue;
 
 					context.report({
