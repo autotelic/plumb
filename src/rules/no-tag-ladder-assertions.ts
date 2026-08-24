@@ -5,7 +5,11 @@ import { isRecordObject, isString } from "../shared/structural.ts";
 
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
 
-/** Whether the if-consequent (or alternate) is a bare `throw new Error(...)` assertion. */
+/** Whether the if-consequent (or alternate) is a bare `throw new Error(...)` assertion.
+ *
+ * @param {ESTree.Statement | null | undefined} statement - The branch body to inspect.
+ * @returns {boolean} True when the branch throws a built-in Error constructor.
+ */
 function isBuiltinThrowBranch(statement: ESTree.Statement | null | undefined): boolean {
 	if (statement === undefined || statement === null) return false;
 	const body = statement.type === "BlockStatement" ? statement.body : [statement];
@@ -18,7 +22,11 @@ function isBuiltinThrowBranch(statement: ESTree.Statement | null | undefined): b
 	);
 }
 
-/** Whether the binary expression compares a `._tag` member against a string literal. */
+/** Whether the binary expression compares a `._tag` member against a string literal.
+ *
+ * @param {ESTree.Expression} expression - The expression to inspect.
+ * @returns {boolean} True when the comparison is a tag equality check.
+ */
 function isTagComparison(expression: ESTree.Expression): boolean {
 	if (expression.type !== "BinaryExpression") return false;
 	if (expression.operator !== "!==" && expression.operator !== "===") return false;
