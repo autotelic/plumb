@@ -13,40 +13,12 @@ function calleeName(node: ESTree.CallExpression): string | null {
 	return null;
 }
 
-function isRegExpTestCall(node: ESTree.CallExpression): boolean {
-	const callee = node.callee;
-	return (
-		callee.type === "MemberExpression" &&
-		!callee.computed &&
-		callee.property.type === "Identifier" &&
-		callee.property.name === "test"
-	);
-}
-
-function isOptionGuardBinary(
-	expression: ESTree.Expression,
-): expression is ESTree.BinaryExpression {
-	if (expression.type !== "BinaryExpression") return false;
-	if (expression.operator !== "===" && expression.operator !== "!==") return false;
-	const sides = [expression.left, expression.right];
-	const tagMember = sides.find(
-		(side) => side.type === "MemberExpression" && side.property.type === "Identifier" && side.property.name === "_tag",
-	);
-	const literal = sides.find((side) => side.type === "Literal");
-	return (
-		tagMember !== undefined &&
-		literal !== undefined &&
-		literal.type === "Literal" &&
-		(literal.value === "None" || literal.value === "Some")
-	);
-}
-
-function isOptionIsCall(node: ESTree.CallExpression): boolean {
-	const name = calleeName(node);
-	return name === "isNone" || name === "isSome";
-}
-
-/** Whether this node sits inside a `Schema.makeFilter` predicate, where ad-hoc checks are the point. */
+/** Whether this node sits inside a `Schema.makeFilter` predicate, where ad-hoc checks are the point.
+ *
+ * @param {ESTree.Node} node - The visited node.
+ * @param {ReadonlyArray<ESTree.Node>} ancestors - Nearest-first ancestor chain of `node`.
+ * @returns {boolean} True when enclosed by a makeFilter call.
+ */
 function insideMakeFilter(node: ESTree.Node, ancestors: ReadonlyArray<ESTree.Node>): boolean {
 	for (let index = ancestors.length - 1; index >= 0; index--) {
 		const current = ancestors[index]!;
@@ -95,11 +67,19 @@ export const noManualFieldGuardsRule = defineRule({
 			CallExpression(node) {
 				const name = calleeName(node);
 				if (name !== null && name.startsWith("decodeUnknown")) hasDecode = true;
-				if (isRegExpTestCall(node)) {
-					queue(node, "regexTest");
-					return;
+				{
+					const callee = node.callee;
+					if (
+						callee.type === "MemberExpression" &&
+						!callee.computed &&
+						callee.property.type === "Identifier" &&
+						callee.property.name === "test"
+					) {
+						queue(node, "regexTest");
+						return;
+					}
 				}
-				if (isOptionIsCall(node)) {
+				if (name === "isNone" || name === "isSome") {
 					const argument = node.arguments[0];
 					if (
 						argument !== undefined &&
@@ -111,13 +91,27 @@ export const noManualFieldGuardsRule = defineRule({
 				}
 			},
 			IfStatement(node) {
-				if (!isOptionGuardBinary(node.test)) return;
-				// SAFETY: isOptionGuardBinary matched only BinaryExpression tests.
-				const binaryTest = node.test as ESTree.BinaryExpression;
+				const binaryTest = node.test;
+				if (binaryTest.type !== "BinaryExpression") return;
+				if (binaryTest.operator !== "===" && binaryTest.operator !== "!==") return;
 				const sides = [binaryTest.left, binaryTest.right];
-				const tagMember = sides.find(
-					(side) => side.type === "MemberExpression" && side.object.type === "Identifier",
-				) as ESTree.MemberExpression | undefined;
+				const hasTagSide = sides.some(
+					(side) =>
+						side.type === "MemberExpression" &&
+						side.property.type === "Identifier" &&
+						side.property.name === "_tag",
+				);
+				const literal = sides.find((side) => side.type === "Literal");
+				if (
+					!hasTagSide ||
+					literal === undefined ||
+					literal.type !== "Literal" ||
+					(literal.value !== "None" && literal.value !== "Some")
+				)
+					return;
+				const tagMember = sides.find((side): side is ESTree.MemberExpression => {
+					return side.type === "MemberExpression" && side.object.type === "Identifier";
+				});
 				if (
 					tagMember !== undefined &&
 					tagMember.object.type === "Identifier" &&
