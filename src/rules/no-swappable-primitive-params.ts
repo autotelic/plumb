@@ -14,7 +14,11 @@ const PRIMITIVE_KEYWORDS = new Map<string, string>([
 
 const PRIMITIVES: ReadonlySet<string> = new Set(PRIMITIVE_KEYWORDS.values());
 
-/** Bare primitive annotation on a positional parameter, e.g. `userId: string`. */
+/** Bare primitive annotation on a positional parameter, e.g. `userId: string`.
+ *
+ * @param {ESTree.BindingPattern | ESTree.ParamPattern} param - The parameter pattern to inspect.
+ * @returns {string | null} The primitive keyword's text, or null when not a bare primitive.
+ */
 function barePrimitive(param: ESTree.BindingPattern | ESTree.ParamPattern): string | null {
 	if (param.type !== "Identifier") return null;
 	const annotation = param.typeAnnotation?.typeAnnotation;
@@ -22,35 +26,8 @@ function barePrimitive(param: ESTree.BindingPattern | ESTree.ParamPattern): stri
 	return PRIMITIVE_KEYWORDS.get(annotation.type) ?? null;
 }
 
-function declaredStatement(statement: ESTree.Statement): ESTree.Node | null {
-	return statement.type === "ExportNamedDeclaration" ||
-		statement.type === "ExportDefaultDeclaration"
-		? (statement.declaration ?? null)
-		: statement;
-}
-
 interface FnLike {
 	params: ReadonlyArray<ESTree.BindingPattern | ESTree.ParamPattern>;
-}
-
-function swappableRuns(fn: FnLike): Array<{ primitive: string; count: number }> {
-	const found: Array<{ primitive: string; count: number }> = [];
-	let runPrimitive: string | null = null;
-	let runLength = 0;
-	for (const param of fn.params) {
-		const primitive = barePrimitive(param);
-		if (primitive !== null && primitive === runPrimitive) {
-			runLength += 1;
-		} else {
-			if (runPrimitive !== null && runLength >= 2)
-				found.push({ primitive: runPrimitive, count: runLength });
-			runPrimitive = primitive;
-			runLength = 1;
-		}
-	}
-	if (runPrimitive !== null && runLength >= 2)
-		found.push({ primitive: runPrimitive, count: runLength });
-	return found;
 }
 
 /** Adjacent same-primitive parameters compile despite swaps; require distinct brands. */
@@ -67,13 +44,33 @@ export const noSwappablePrimitiveParamsRule = defineRule({
 		},
 	},
 	createOnce(context) {
-		const reportFn = (name: string, id: ESTree.BindingIdentifier | null, fn: FnLike): void => {
-			const runs = swappableRuns(fn);
-			if (runs.length === 0) return;
-			const firstRun = runs[0];
+		const reportFn = (
+			name: string,
+			id: ESTree.BindingIdentifier | null,
+			fn: FnLike,
+			fnNode: ESTree.Node,
+		): void => {
+			const found: Array<{ primitive: string; count: number }> = [];
+			let runPrimitive: string | null = null;
+			let runLength = 0;
+			for (const param of fn.params) {
+				const primitive = barePrimitive(param);
+				if (primitive !== null && primitive === runPrimitive) {
+					runLength += 1;
+				} else {
+					if (runPrimitive !== null && runLength >= 2)
+						found.push({ primitive: runPrimitive, count: runLength });
+					runPrimitive = primitive;
+					runLength = 1;
+				}
+			}
+			if (runPrimitive !== null && runLength >= 2)
+				found.push({ primitive: runPrimitive, count: runLength });
+			if (found.length === 0) return;
+			const firstRun = found[0];
 			if (firstRun === undefined) return;
 			context.report({
-				node: id ?? fn as unknown as ESTree.Node,
+				node: id ?? fnNode,
 				messageId: "swappablePrimitiveParams",
 				data: { name, primitive: firstRun.primitive, count: String(firstRun.count) },
 			});
@@ -84,10 +81,14 @@ export const noSwappablePrimitiveParamsRule = defineRule({
 		},
 			Program(node) {
 				for (const statement of node.body) {
-					const declaration = declaredStatement(statement);
+					const declaration =
+						statement.type === "ExportNamedDeclaration" ||
+						statement.type === "ExportDefaultDeclaration"
+							? (statement.declaration ?? null)
+							: statement;
 					if (declaration === null) continue;
 					if (declaration.type === "FunctionDeclaration" && declaration.id !== null) {
-						reportFn(declaration.id.name, declaration.id, declaration);
+						reportFn(declaration.id.name, declaration.id, declaration, declaration);
 					}
 					if (declaration.type === "VariableDeclaration") {
 						for (const declarator of declaration.declarations) {
@@ -97,7 +98,7 @@ export const noSwappablePrimitiveParamsRule = defineRule({
 								init?.type === "ArrowFunctionExpression" ||
 								init?.type === "FunctionExpression"
 							) {
-								reportFn(declarator.id.name, declarator.id, init);
+								reportFn(declarator.id.name, declarator.id, init, init);
 							}
 						}
 					}
