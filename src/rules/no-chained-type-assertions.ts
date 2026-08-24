@@ -1,6 +1,6 @@
 import { defineRule } from "@oxlint/plugins";
 import type { ESTree } from "@oxlint/plugins";
-import { cast } from "../shared/structural.ts";
+import { ancestorsOf } from "../shared/ancestors.ts";
 
 type TypeAssertionExpression = ESTree.TSAsExpression | ESTree.TSTypeAssertion;
 
@@ -19,9 +19,7 @@ export const noChainedTypeAssertionsRule = defineRule({
   },
   createOnce(context) {
     const checkTypeAssertion = (node: TypeAssertionExpression) => {
-      const ancestors = cast<ReadonlyArray<ESTree.Node>>(
-        context.sourceCode.getAncestors(node),
-      );
+      const ancestors = ancestorsOf(context.sourceCode, node);
 
       let current: ESTree.Expression = node;
       let index = ancestors.length - 1;
