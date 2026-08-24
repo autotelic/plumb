@@ -6,7 +6,12 @@ const VALIDATOR_NAME = /^(?:validate|check|ensure)/u;
 
 type ValidatorFunction = ESTree.ArrowFunctionExpression | ESTree.Function;
 
-/** Documented contract for returnsVoid. */
+/**
+ * Whether a validator function declares void/undefined as its return type.
+ *
+ * @param {ValidatorFunction} node - The function-like node to inspect.
+ * @returns {boolean} True when the return annotation is void or undefined.
+ */
 function returnsVoid(node: ValidatorFunction): boolean {
 	const annotation = node.returnType;
 	if (annotation === null || annotation === undefined) return false;
