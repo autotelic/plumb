@@ -45,18 +45,14 @@ function isPascalCase(name: string): boolean {
  * @returns {string | null} The property name, or null when unavailable.
  */
 function memberName(member: ESTree.Node): string | null {
-	const memberView = cast<{
-		readonly computed?: boolean;
-		readonly property: ESTree.Node;
-	}>(member);
-	if (memberView.computed !== true) {
-		const property = memberView.property;
-		return typeOf(property) === "Identifier"
-			? cast<{ readonly name: string }>(property).name
-			: null;
+	if (member.type !== "MemberExpression") return null;
+	if (!member.computed) {
+		return member.property.type === "Identifier" ? member.property.name : null;
 	}
-	const literal = cast<{ readonly value?: NodeFieldValue }>(memberView.property).value;
-	return literal !== undefined && isString(literal) ? literal : null;
+	if (member.property.type === "Literal" && isString(member.property.value)) {
+		return member.property.value;
+	}
+	return null;
 }
 
 /** Whether the call resolves to `Effect.<method>` (one invocation wrapper allowed for `Effect.fn("N")(...)`).
@@ -65,17 +61,11 @@ function memberName(member: ESTree.Node): string | null {
  * @returns {boolean} True when the call targets `Effect.<method>`.
  */
 function isEffectMethodCall(payload: { call: ESTree.Node; method: string }): boolean {
-	let callee: ESTree.Node = cast<{ readonly callee: ESTree.Node }>(payload.call).callee;
-	if (typeOf(callee) === "CallExpression") {
-		callee = cast<{ readonly callee: ESTree.Node }>(callee).callee;
-	}
-	if (typeOf(callee) !== "MemberExpression") return false;
-	const object = cast<{ readonly object: ESTree.Node }>(callee).object;
-	return (
-		typeOf(object) === "Identifier" &&
-		cast<{ readonly name: string }>(object).name === "Effect" &&
-		memberName(callee) === payload.method
-	);
+	let callee: ESTree.Node = payload.call;
+	if (callee.type === "CallExpression") callee = callee.callee;
+	if (callee.type !== "MemberExpression") return false;
+	if (callee.object.type !== "Identifier") return false;
+	return callee.object.name === "Effect" && memberName(callee) === payload.method;
 }
 
 /**
@@ -104,23 +94,17 @@ function effectInitializerKind(init: ESTree.Node): CandidateKind | null {
 
 function addDeclaredName(declaration: ESTree.Node | null, names: Set<string>): void {
 	if (declaration === null) return;
-	const kind = typeOf(declaration);
 	if (
-		kind === "FunctionDeclaration" ||
-		kind === "TSTypeAliasDeclaration" ||
-		kind === "TSInterfaceDeclaration"
+		declaration.type === "FunctionDeclaration" ||
+		declaration.type === "TSTypeAliasDeclaration" ||
+		declaration.type === "TSInterfaceDeclaration"
 	) {
-		const id = cast<{ readonly id?: { readonly name: string } | null }>(declaration).id;
-		if (id != null) names.add(id.name);
+		if (declaration.id != null) names.add(declaration.id.name);
 		return;
 	}
-	if (kind === "VariableDeclaration") {
-		const declarations = cast<{
-			readonly declarations: ReadonlyArray<ESTree.Node>;
-		}>(declaration).declarations;
-		for (const declarator of declarations) {
-			const id = cast<{ readonly id?: { readonly name?: string } }>(declarator).id;
-			if (id?.name !== undefined) names.add(id.name);
+	if (declaration.type === "VariableDeclaration") {
+		for (const declarator of declaration.declarations) {
+			if (declarator.id.type === "Identifier") names.add(declarator.id.name);
 		}
 	}
 }
@@ -133,33 +117,22 @@ function addDeclaredName(declaration: ESTree.Node | null, names: Set<string>): v
 function exportedNames(program: ESTree.Program): Set<string> {
 	const names = new Set<string>();
 	for (const statement of program.body) {
-		const kind = typeOf(statement);
-		if (kind === "ExportDefaultDeclaration") {
-			addDeclaredName(
-				cast<{ readonly declaration?: ESTree.Node | null }>(statement).declaration ?? null,
-				names,
-			);
+		if (statement.type === "ExportDefaultDeclaration") {
+			addDeclaredName(statement.declaration ?? null, names);
 		}
-		if (kind === "ExportNamedDeclaration") {
-			const exportView = cast<{
-				readonly declaration?: ESTree.Node | null;
-				readonly source?: ESTree.Node | null;
-				readonly specifiers: ReadonlyArray<ESTree.Node>;
-			}>(statement);
-			addDeclaredName(exportView.declaration ?? null, names);
-			if (exportView.source === null || exportView.source === undefined) {
-				for (const specifier of exportView.specifiers) {
-					const local = cast<{
-						readonly local?: { readonly type: string; readonly name?: string; readonly value?: NodeFieldValue };
-					}>(specifier).local;
-					if (local?.name !== undefined) names.add(local.name);
+		if (statement.type === "ExportNamedDeclaration") {
+			addDeclaredName(statement.declaration ?? null, names);
+			if (statement.source === null || statement.source === undefined) {
+				for (const specifier of statement.specifiers) {
+					if (specifier.local !== undefined && specifier.local.type === "Identifier") {
+						names.add(specifier.local.name);
+					}
 				}
 			}
 		}
-		if (kind === "TSExportAssignment") {
-			const expression = cast<{ readonly expression: ESTree.Node }>(statement).expression;
-			if (typeOf(expression) === "Identifier") {
-				names.add(cast<{ readonly name: string }>(expression).name);
+		if (statement.type === "TSExportAssignment") {
+			if (statement.expression.type === "Identifier") {
+				names.add(statement.expression.name);
 			}
 		}
 	}
@@ -306,12 +279,9 @@ export const noSingleUsePrivateFunctionsRule = defineRule({
 				}
 				const candidates: Array<Candidate> = [];
 				for (const statement of node.body) {
-					const kind = typeOf(statement);
 					if (documented.has(statement)) continue;
-					if (kind === "FunctionDeclaration") {
-						const name = cast<{
-							readonly id?: { readonly name: string } | null;
-						}>(statement).id?.name;
+					if (statement.type === "FunctionDeclaration") {
+						const name = statement.id?.name;
 						if (name === undefined || exported.has(name) || isPascalCase(name)) continue;
 						const variable = declaredVariablesOf({ sourceCode, node: statement, name });
 						if (variable !== undefined) {
@@ -319,8 +289,8 @@ export const noSingleUsePrivateFunctionsRule = defineRule({
 						}
 						continue;
 					}
-					if (kind === "TSTypeAliasDeclaration" || kind === "TSInterfaceDeclaration") {
-						const name = cast<{ readonly id: { readonly name: string } }>(statement).id.name;
+					if (statement.type === "TSTypeAliasDeclaration" || statement.type === "TSInterfaceDeclaration") {
+						const name = statement.id.name;
 						if (exported.has(name)) continue;
 						const variable = declaredVariablesOf({ sourceCode, node: statement, name });
 						if (variable !== undefined) {
@@ -328,19 +298,13 @@ export const noSingleUsePrivateFunctionsRule = defineRule({
 						}
 						continue;
 					}
-					if (kind !== "VariableDeclaration") continue;
-					const declarations = cast<{
-						readonly declarations: ReadonlyArray<ESTree.Node>;
-					}>(statement).declarations;
-					for (const declarator of declarations) {
-						const declaratorView = cast<{
-							readonly id?: { readonly type: string; readonly name?: string };
-							readonly init?: ESTree.Node | null;
-						}>(declarator);
-						if (declaratorView.id?.type !== "Identifier" || declaratorView.id.name === undefined)
-							continue;
-						if (declaratorView.init === null || declaratorView.init === undefined) continue;
-						const candidateKind = effectInitializerKind(declaratorView.init);
+					if (statement.type !== "VariableDeclaration") continue;
+					for (const declarator of statement.declarations) {
+						if (declarator.id.type !== "Identifier") continue;
+						const { name } = declarator.id;
+						const init = declarator.init;
+						if (init === null || init === undefined) continue;
+						const candidateKind = effectInitializerKind(init);
 						if (candidateKind === null) continue;
 						const chain = ancestorsOf(sourceCode, declarator);
 						const parent = chain[0];
@@ -348,12 +312,11 @@ export const noSingleUsePrivateFunctionsRule = defineRule({
 						if (
 							parent === undefined ||
 							grandparent === undefined ||
-							typeOf(parent) !== "VariableDeclaration" ||
-							typeOf(grandparent) !== "Program"
+							parent.type !== "VariableDeclaration" ||
+							grandparent.type !== "Program"
 						) {
 							continue;
 						}
-						const name = declaratorView.id.name;
 						if (exported.has(name) || isPascalCase(name)) continue;
 						const variable = declaredVariablesOf({ sourceCode, node: declarator, name });
 						if (variable !== undefined) {
