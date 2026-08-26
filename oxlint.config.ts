@@ -61,6 +61,7 @@ export default defineConfig({
     "plumb/no-multiple-function-params": "error",
     "plumb/no-optional-function-parameters": "error",
     "plumb/no-single-use-private-functions": "error",
+    "plumb/no-mutable-environment-capture": "error",
     "plumb-meta/no-manual-ancestor-walks": "error",
     "plumb-meta/prefer-before-file-scope": "error",
     "plumb-meta/require-create-once": "error",

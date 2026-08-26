@@ -48,6 +48,7 @@ import { requireExhaustiveTagSwitchRule } from "./rules/require-exhaustive-tag-s
 import { noMultipleFunctionParamsRule } from "./rules/no-multiple-function-params.ts";
 import { noOptionalFunctionParametersRule } from "./rules/no-optional-function-parameters.ts";
 import { noSingleUsePrivateFunctionsRule } from "./rules/no-single-use-private-functions.ts";
+import { noMutableEnvironmentCaptureRule } from "./rules/no-mutable-environment-capture.ts";
 
 /** Generic Oxlint rules that reject low-evidence and low-signal implementation patterns. */
 const plumbPlugin = eslintCompatPlugin({
@@ -100,6 +101,7 @@ const plumbPlugin = eslintCompatPlugin({
 		"no-multiple-function-params": noMultipleFunctionParamsRule,
 		"no-optional-function-parameters": noOptionalFunctionParametersRule,
 		"no-single-use-private-functions": noSingleUsePrivateFunctionsRule,
+		"no-mutable-environment-capture": noMutableEnvironmentCaptureRule,
 	},
 });
 
