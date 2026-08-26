@@ -119,6 +119,8 @@ export const requireTripartiteContextRule = defineRule({
 
 		return {
 			before() {
+				localTypes.clear();
+				calls.length = 0;
 				if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
 			},
 			TSInterfaceDeclaration(node) {

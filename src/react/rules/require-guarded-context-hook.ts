@@ -137,6 +137,7 @@ export const requireGuardedContextHookRule = defineRule({
 
 		return {
 			before() {
+				frames.length = 0;
 				if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
 			},
 			FunctionDeclaration(node) {

@@ -2,14 +2,16 @@ import { defineRule } from "@oxlint/plugins";
 import { isString } from "../../shared/structural.js";
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
 /**
- * Whether a component family (a Provider export plus a useXxx hook export)
- * must carry a dot-notation aggregate export.
+ * Whether a component family (a Provider plus a useXxx hook sharing one family
+ * name) must carry a dot-notation aggregate export.
  *
- * @param {{ hasProvider: boolean; hasHook: boolean; aggregateOk: boolean }} input - The family's export facts.
+ * @param {{ providerFamily: string | null; hookFamily: string; singleFamily: boolean; aggregateOk: boolean }} input - The family's export facts.
  * @returns {boolean} True when an aggregate is required but absent/incomplete.
  */
 export function familyRequiresAggregate(input) {
-    return input.hasProvider && input.hasHook && !input.aggregateOk;
+    const providerPresent = input.providerFamily === input.hookFamily ||
+        (input.providerFamily === "" && input.singleFamily);
+    return providerPresent && !input.aggregateOk;
 }
 /**
  * Property key names of an object literal.
@@ -43,11 +45,26 @@ function hookFamily(name) {
     return match === null ? null : (match[1] ?? null);
 }
 /**
+ * Whether an aggregate's keys include the Provider and the useXxx hook.
+ *
+ * @param {Set<string>} keys - The aggregate object's property keys.
+ * @returns {boolean} True when both the Provider and the hook are present.
+ */
+function hasProviderKey(keys) {
+    for (const k of keys)
+        if (k === "Provider" || /Provider$/u.test(k))
+            return true;
+    return false;
+}
+/**
  * A component family (a Provider plus a `useXxx` consumer hook) must be exported
  * through a single dot-notation aggregate (`export const Family = { Provider, ... }`)
  * so consumers compose `Family.Provider` / `Family.Header` and the blocks are
  * discoverable. Bare re-exports of `Provider`/`useXxx` without the aggregate
  * hide the family boundary.
+ *
+ * Uses createOnce; per-file state is reset in before() (which oxlint calls per
+ * file), so a family seen in one file cannot leak into another.
  */
 export const requireDotNotationExportsRule = defineRule({
     meta: {
@@ -60,33 +77,27 @@ export const requireDotNotationExportsRule = defineRule({
         },
     },
     createOnce(context) {
-        const providerExports = new Set();
+        const providerBases = new Set();
         const hookFamilies = new Set();
         const aggregates = new Map();
         let reportNode = null;
         const recordName = (entry) => {
             if (reportNode === null)
                 reportNode = entry.node;
-            if (entry.name === "Provider" || entry.name.endsWith("Provider"))
-                providerExports.add(entry.name);
+            if (entry.name === "Provider")
+                providerBases.add("");
+            else if (entry.name.endsWith("Provider"))
+                providerBases.add(entry.name.slice(0, -"Provider".length));
             const hf = hookFamily(entry.name);
             if (hf !== null)
                 hookFamilies.add(hf);
         };
-        /**
-         * Whether an aggregate's keys include the Provider and the useXxx hook.
-         *
-         * @param {Set<string>} keys - The aggregate object's property keys.
-         * @returns {boolean} True when both the Provider and the hook are present.
-         */
-        function hasProviderKey(keys) {
-            for (const k of keys)
-                if (k === "Provider" || /Provider$/u.test(k))
-                    return true;
-            return false;
-        }
         return {
             before() {
+                providerBases.clear();
+                hookFamilies.clear();
+                aggregates.clear();
+                reportNode = null;
                 if (TEST_FILE.test(context.filename.replaceAll("\\", "/")))
                     return false;
             },
@@ -116,12 +127,16 @@ export const requireDotNotationExportsRule = defineRule({
                 }
             },
             "Program:exit"() {
-                if (providerExports.size === 0 || hookFamilies.size === 0)
+                if (hookFamilies.size === 0)
                     return;
                 const node = reportNode;
                 if (node === null)
                     return;
+                const singleFamily = hookFamilies.size === 1;
                 for (const family of hookFamilies) {
+                    const providerPresent = providerBases.has(family) || (providerBases.has("") && singleFamily);
+                    if (!providerPresent)
+                        continue;
                     const agg = aggregates.get(family);
                     const ok = agg !== undefined && hasProviderKey(agg) && agg.has("use" + family);
                     if (ok)

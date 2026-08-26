@@ -1,13 +1,14 @@
 /**
- * Whether a component family (a Provider export plus a useXxx hook export)
- * must carry a dot-notation aggregate export.
+ * Whether a component family (a Provider plus a useXxx hook sharing one family
+ * name) must carry a dot-notation aggregate export.
  *
- * @param {{ hasProvider: boolean; hasHook: boolean; aggregateOk: boolean }} input - The family's export facts.
+ * @param {{ providerFamily: string | null; hookFamily: string; singleFamily: boolean; aggregateOk: boolean }} input - The family's export facts.
  * @returns {boolean} True when an aggregate is required but absent/incomplete.
  */
 export declare function familyRequiresAggregate(input: {
-    hasProvider: boolean;
-    hasHook: boolean;
+    providerFamily: string | null;
+    hookFamily: string;
+    singleFamily: boolean;
     aggregateOk: boolean;
 }): boolean;
 /**
@@ -16,5 +17,8 @@ export declare function familyRequiresAggregate(input: {
  * so consumers compose `Family.Provider` / `Family.Header` and the blocks are
  * discoverable. Bare re-exports of `Provider`/`useXxx` without the aggregate
  * hide the family boundary.
+ *
+ * Uses createOnce; per-file state is reset in before() (which oxlint calls per
+ * file), so a family seen in one file cannot leak into another.
  */
 export declare const requireDotNotationExportsRule: import("@oxlint/plugins").Rule;

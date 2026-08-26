@@ -19,6 +19,11 @@ export const ExpenseCategory = {
 };`,
 			filename: "a.ts",
 		},
+		{
+			code: `export function CounterProvider() { return null; }
+export function useTheme() { return null; }`,
+			filename: "a.ts",
+		},
 	],
 	invalid: [
 		{
@@ -31,14 +36,19 @@ export function useExpenseCategory() { return null; }`,
 });
 
 describe("require-dot-notation-exports property", () => {
-	it("familyRequiresAggregate is true iff a Provider+hook family lacks an aggregate", () => {
+	it("familyRequiresAggregate is true iff a Provider matching the hook family lacks an aggregate", () => {
 		fc.assert(
 			fc.property(
-				fc.tuple(fc.boolean(), fc.boolean(), fc.boolean()),
-				([hasProvider, hasHook, aggregateOk]) => {
-					expect(familyRequiresAggregate({ hasProvider, hasHook, aggregateOk })).toBe(
-						hasProvider && hasHook && !aggregateOk,
-					);
+				fc.tuple(
+					fc.string(),
+					fc.oneof(fc.constant(null), fc.constant(""), fc.string()),
+					fc.boolean(),
+					fc.boolean(),
+				),
+				([hookFamily, providerFamily, singleFamily, aggregateOk]) => {
+					const expected =
+						((providerFamily === hookFamily) || (providerFamily === "" && singleFamily)) && !aggregateOk;
+					expect(familyRequiresAggregate({ providerFamily, hookFamily, singleFamily, aggregateOk })).toBe(expected);
 				},
 			),
 		);
