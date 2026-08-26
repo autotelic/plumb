@@ -27,10 +27,10 @@ function memberName(member) {
     }
     return null;
 }
-/** Whether the call resolves to `Effect.<method>` (one invocation wrapper allowed for `Effect.fn("N")(...)`).
+/** Whether the call resolves to Effect.<method> (one invocation wrapper allowed for Effect.fn("N")(...)).
  *
  * @param {{ call: ESTree.Node; method: string }} payload - The candidate call and Effect method name.
- * @returns {boolean} True when the call targets `Effect.<method>`.
+ * @returns {boolean} True when the call targets Effect.<method>.
  */
 function isEffectMethodCall(payload) {
     let callee = payload.call;
@@ -111,7 +111,7 @@ function exportedNames(program) {
     }
     return names;
 }
-/** Reads inside type positions (`: T`, `as T`, generics) are not runtime reads.
+/** Reads inside type positions (: T, as T, generics) are not runtime reads.
  *
  * @param {SourceCode} sourceCode - The rule's source-code accessor.
  * @param {ESTree.Node} identifier - The identifier reference being counted.
@@ -188,26 +188,150 @@ function useCount(payload) {
  *
  * @param {{ sourceCode: SourceCode; node: ESTree.Node; name: string }} payload - Lookup inputs.
  * @returns {DeclaredVariable | undefined} The matching record, if any.
+ *   For a VariableDeclarator the binding lives on its parent VariableDeclaration, so the declarator is unwrapped first.
  */
 function declaredVariablesOf(payload) {
-    return payload.sourceCode.getDeclaredVariables(payload.node).find((variable) => variable.name === payload.name);
+    const node = payload.node.type === "VariableDeclarator"
+        ? (ancestorsOf(payload.sourceCode, payload.node).find((ancestor) => ancestor.type === "VariableDeclaration") ?? payload.node)
+        : payload.node;
+    return payload.sourceCode.getDeclaredVariables(node).find((variable) => variable.name === payload.name);
 }
-/** Top-level privates referenced exactly once are dead indirection; inline them at their single site.
+/** Extract the handler function nested inside an Effect initializer (Effect.fn / Effect.gen).
  *
- * A leading JSDoc block marks the name as deliberately documented composition,
- * so such statements are exempt from the check.
+ * @param {ESTree.Node | null | undefined} init - The candidate's initializer expression.
+ * @returns {ESTree.Node | null} The handler function node, or null when absent.
+ */
+function effectHandler(init) {
+    if (init === null || init === undefined || init.type !== "CallExpression")
+        return null;
+    let handler = null;
+    for (const arg of init.arguments) {
+        if (arg.type === "FunctionExpression" ||
+            arg.type === "ArrowFunctionExpression" ||
+            arg.type === "FunctionDeclaration") {
+            handler = arg;
+        }
+    }
+    return handler;
+}
+/** Simple identifier parameter names, or null when any parameter is a pattern.
+ *
+ * @param {ESTree.Node} fn - The function-like node to inspect.
+ * @returns {Set<string> | null} The parameter names, or null for non-functions/patterns.
+ */
+function paramNames(fn) {
+    if (fn.type !== "FunctionDeclaration" &&
+        fn.type !== "FunctionExpression" &&
+        fn.type !== "ArrowFunctionExpression") {
+        return null;
+    }
+    const names = new Set();
+    for (const param of fn.params) {
+        if (param.type !== "Identifier")
+            return null;
+        names.add(param.name);
+    }
+    return names;
+}
+/**
+ * Whether a function is a pure alias: it returns a single call that forwards
+ * each of its parameters verbatim (a generator may delegate-yield such a call).
+ * Anything else raises the level of abstraction and earns its name.
+ *
+ * @param {ESTree.Node} fn - The function-like node to inspect.
+ * @returns {boolean} True when the function is dead indirection.
+ */
+export function isTrivialForwarder(fn) {
+    if (fn.type !== "FunctionDeclaration" &&
+        fn.type !== "FunctionExpression" &&
+        fn.type !== "ArrowFunctionExpression") {
+        return false;
+    }
+    const names = paramNames(fn);
+    if (names === null || names.size === 0)
+        return false;
+    let call = null;
+    if (fn.body !== null && fn.body.type === "BlockStatement") {
+        const statements = fn.body.body;
+        const statement = statements[0];
+        if (statement !== undefined && statement.type === "ReturnStatement") {
+            const argument = statement.argument;
+            if (argument !== null && argument !== undefined && argument.type === "CallExpression") {
+                call = argument;
+            }
+            else if (argument !== null &&
+                argument !== undefined &&
+                argument.type === "YieldExpression" &&
+                argument.delegate === true &&
+                argument.argument !== null &&
+                argument.argument !== undefined &&
+                argument.argument.type === "CallExpression") {
+                call = argument.argument;
+            }
+        }
+    }
+    else if (fn.type === "ArrowFunctionExpression" && fn.body !== null && fn.body.type === "CallExpression") {
+        call = fn.body;
+    }
+    if (call === null)
+        return false;
+    const seen = new Set();
+    for (const arg of call.arguments) {
+        if (arg.type !== "Identifier")
+            return false;
+        if (!names.has(arg.name) || seen.has(arg.name))
+            return false;
+        seen.add(arg.name);
+    }
+    return seen.size === names.size;
+}
+/**
+ * Whether a single-use candidate is dead indirection worth inlining: a pure
+ * alias that forwards its inputs verbatim. Substantial single-use helpers that
+ * raise the level of abstraction are kept (the document's "factor at n=1").
+ *
+ * @param {SourceCode} sourceCode - The rule's source-code accessor.
+ * @param {Candidate} candidate - The candidate to grade.
+ * @returns {boolean} True when the candidate is a pure alias.
+ */
+function isDeadIndirection(sourceCode, candidate) {
+    if (candidate.kind === "type")
+        return false;
+    let fn = null;
+    if (candidate.kind === "function") {
+        const node = candidate.node;
+        if (node.type === "FunctionDeclaration") {
+            fn = node;
+        }
+        else if (node.type === "VariableDeclarator") {
+            fn = node.init ?? null;
+        }
+    }
+    else {
+        const node = candidate.node;
+        fn = node.type === "VariableDeclarator" ? effectHandler(node.init) : null;
+    }
+    if (fn === null)
+        return false;
+    return isTrivialForwarder(fn);
+}
+/**
+ * Top-level privates referenced exactly once are only worth inlining when they
+ * are pure aliases (they forward their inputs verbatim to another call). A
+ * single-use helper that earns its name by raising the level of abstraction is
+ * kept: the document argues for factoring proactively, even at n=1.
  */
 export const noSingleUsePrivateFunctionsRule = defineRule({
     meta: {
         type: "suggestion",
         docs: {
-            description: "Inline private top-level functions, Effect values, and types that are referenced exactly once; single-use indirection hides shape without earning a name.",
+            description: "Inline private top-level functions and Effect values that are referenced exactly once as a pure alias (they forward their inputs verbatim to another call); single-use indirection that adds no abstraction hides shape. Single-use helpers that raise the level of abstraction earn their name and are kept.",
         },
         messages: {
-            singleUseFunction: "Private function `{{name}}` is read exactly once. Inline it at that use site instead of naming an indirection.",
-            singleUseEffectFunction: "Private Effect function `{{name}}` is run exactly once. Inline the handler at its single use site.",
-            singleUseEffectProgram: "Private Effect program `{{name}}` is composed into exactly one pipeline. Inline it there instead of naming an indirection.",
-            singleUseType: "Private type `{{name}}` is referenced exactly once. Inline the annotation at that use site instead of naming it.",
+            singleUseFunction: "Private function {{name}} is a single-use pure alias: it forwards its inputs verbatim to another call. Inline the forwarded call at its use site instead of naming zero-abstraction indirection.",
+            singleUseEffectFunction: "Private Effect function {{name}} is run exactly once as a pure alias. Inline the forwarded handler at its single use site instead of naming zero-abstraction indirection.",
+            singleUseEffectProgram: "Private Effect program {{name}} is composed into exactly one pipeline as a pure alias. Inline it there instead of naming zero-abstraction indirection.",
+            singleUseType: "Private type {{name}} is referenced exactly once. Inline the annotation at that use site instead of naming it.",
         },
     },
     createOnce(context) {
@@ -264,12 +388,10 @@ export const noSingleUsePrivateFunctionsRule = defineRule({
                         if (candidateKind === null)
                             continue;
                         const chain = ancestorsOf(sourceCode, declarator);
-                        const parent = chain[0];
-                        const grandparent = chain[1];
-                        if (parent === undefined ||
-                            grandparent === undefined ||
-                            parent.type !== "VariableDeclaration" ||
-                            grandparent.type !== "Program") {
+                        const parentIndex = chain.findIndex((ancestor) => ancestor.type === "VariableDeclaration");
+                        const parent = parentIndex >= 0 ? chain[parentIndex] : undefined;
+                        const grandparent = parentIndex > 0 ? chain[parentIndex - 1] : chain[parentIndex + 1];
+                        if (parent === undefined || grandparent === undefined || grandparent.type !== "Program") {
                             continue;
                         }
                         if (exported.has(name) || isPascalCase(name))
@@ -282,6 +404,8 @@ export const noSingleUsePrivateFunctionsRule = defineRule({
                 }
                 for (const candidate of candidates) {
                     if (useCount({ sourceCode, candidate }) !== 1)
+                        continue;
+                    if (!isDeadIndirection(sourceCode, candidate))
                         continue;
                     context.report({
                         node: candidate.node,
