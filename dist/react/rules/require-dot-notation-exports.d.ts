@@ -1,9 +1,12 @@
 /**
  * Whether a component family (a Provider plus a useXxx hook sharing one family
- * name) must carry a dot-notation aggregate export.
+ * name) must carry a dot-notation aggregate export. The useXxx hook is the
+ * family's consumption API and is exported separately by convention, so
+ * `aggregateOk` only asks whether the aggregate (export const Family = {
+ * Provider, ... }) exists and carries its Provider.
  *
  * @param {{ providerFamily: string | null; hookFamily: string; singleFamily: boolean; aggregateOk: boolean }} input - The family's export facts.
- * @returns {boolean} True when an aggregate is required but absent/incomplete.
+ * @returns {boolean} True when an aggregate is required but absent.
  */
 export declare function familyRequiresAggregate(input: {
     providerFamily: string | null;

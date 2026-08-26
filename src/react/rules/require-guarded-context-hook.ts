@@ -4,6 +4,8 @@ import type { ESTree } from "@oxlint/plugins";
 
 import { ancestorsOf } from "../../shared/ancestors.ts";
 
+import { isHookName } from "../role.ts";
+
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
 
 /**
@@ -19,16 +21,6 @@ export function requiresContextGuard(input: {
 	guarded: boolean;
 }): boolean {
 	return input.isHook && input.callsUseContext && !input.guarded;
-}
-
-/**
- * Whether a function name denotes a custom hook.
- *
- * @param {string | null} name - The function's name, if known.
- * @returns {name is string} True when the name starts with "use" + a capital.
- */
-function isHookName(name: string | null): name is string {
-	return name !== null && /^use[A-Z]/u.test(name);
 }
 
 /**

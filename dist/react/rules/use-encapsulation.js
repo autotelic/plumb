@@ -1,6 +1,7 @@
 import { defineRule } from "@oxlint/plugins";
 import { ancestorsOf } from "../../shared/ancestors.js";
 import { readField } from "../../shared/structural.js";
+import { isProviderName } from "../role.js";
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
 /** Pattern identifying custom hooks (names starting with `use`). */
 const HOOK_PATTERN = /^use/u;
@@ -24,20 +25,23 @@ const REACT_HOOKS = new Set([
 ]);
 /**
  * Whether a React hook used at `hookName` inside a function named `parentName`
- * violates the encapsulation rule (hook used directly in a non-hook function).
+ * violates the encapsulation rule. Provider components (XProvider) are the
+ * stateful root of a context family and legitimately use hooks inline, so they
+ * are exempt.
  *
  * @param {{ hookName: string; parentName: string }} input - The usage facts.
  * @returns {boolean} True when the usage should be reported.
  */
 export function isEncapsulationViolation(input) {
-    return REACT_HOOKS.has(input.hookName) && !HOOK_PATTERN.test(input.parentName);
+    return REACT_HOOKS.has(input.hookName) && !HOOK_PATTERN.test(input.parentName) && !isProviderName(input.parentName);
 }
 /**
  * Do not call React's hooks directly inside a component. Abstract the
  * functionality into a custom hook (`useXxx`) and call that instead - the
  * "useEncapsulation" pattern. A component that reaches for `useState`/`useEffect`
  * inline hides its state and effects; a custom hook names them and can be tested
- * and composed in isolation.
+ * and composed in isolation. Provider components (XProvider) are exempt: they are
+ * the stateful root of a context family and must use hooks inline.
  */
 export const useEncapsulationRule = defineRule({
     meta: {
@@ -84,7 +88,7 @@ export const useEncapsulationRule = defineRule({
                 if (!hooksToCheck.has(node.name))
                     return;
                 const parent = nearestFunctionName(node);
-                if (parent !== null && !HOOK_PATTERN.test(parent)) {
+                if (parent !== null && !HOOK_PATTERN.test(parent) && !isProviderName(parent)) {
                     context.report({ node, messageId: "noDirectHooks", data: { hook: node.name, parent } });
                 }
             },

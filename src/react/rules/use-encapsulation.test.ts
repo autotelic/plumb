@@ -5,6 +5,7 @@ import fc from "fast-check";
 
 import { testableRule, wireRuleTester } from "../../testing/testable-rule.ts";
 import { useEncapsulationRule, isEncapsulationViolation } from "./use-encapsulation.ts";
+import { isProviderName } from "../role.ts";
 
 wireRuleTester({ describe, it });
 
@@ -44,6 +45,13 @@ export function useCounter() {
 }`,
 			filename: "a.ts",
 		},
+		{
+			code: `export function CounterProvider() {
+  const [count, setCount] = useState(0);
+  return count;
+}`,
+			filename: "a.ts",
+		},
 	],
 	invalid: [
 		{
@@ -63,7 +71,7 @@ describe("use-encapsulation property", () => {
 			fc.property(
 				fc.tuple(fc.string(), fc.string()),
 				([hookName, parentName]) => {
-					const expected = HOOKS.has(hookName) && !/^use/u.test(parentName);
+					const expected = HOOKS.has(hookName) && !/^use/u.test(parentName) && !isProviderName(parentName);
 					expect(isEncapsulationViolation({ hookName, parentName })).toBe(expected);
 				},
 			),

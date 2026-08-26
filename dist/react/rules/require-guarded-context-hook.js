@@ -1,5 +1,6 @@
 import { defineRule } from "@oxlint/plugins";
 import { ancestorsOf } from "../../shared/ancestors.js";
+import { isHookName } from "../role.js";
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
 /**
  * Whether a custom context hook that reads context must be reported for
@@ -10,15 +11,6 @@ const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
  */
 export function requiresContextGuard(input) {
     return input.isHook && input.callsUseContext && !input.guarded;
-}
-/**
- * Whether a function name denotes a custom hook.
- *
- * @param {string | null} name - The function's name, if known.
- * @returns {name is string} True when the name starts with "use" + a capital.
- */
-function isHookName(name) {
-    return name !== null && /^use[A-Z]/u.test(name);
 }
 /**
  * The variable name an `if` test guards against a nullish value.

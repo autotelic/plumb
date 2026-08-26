@@ -1,12 +1,16 @@
 import { defineRule } from "@oxlint/plugins";
 import { isString } from "../../shared/structural.js";
+import { hookFamily, isProviderName } from "../role.js";
 const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
 /**
  * Whether a component family (a Provider plus a useXxx hook sharing one family
- * name) must carry a dot-notation aggregate export.
+ * name) must carry a dot-notation aggregate export. The useXxx hook is the
+ * family's consumption API and is exported separately by convention, so
+ * `aggregateOk` only asks whether the aggregate (export const Family = {
+ * Provider, ... }) exists and carries its Provider.
  *
  * @param {{ providerFamily: string | null; hookFamily: string; singleFamily: boolean; aggregateOk: boolean }} input - The family's export facts.
- * @returns {boolean} True when an aggregate is required but absent/incomplete.
+ * @returns {boolean} True when an aggregate is required but absent.
  */
 export function familyRequiresAggregate(input) {
     const providerPresent = input.providerFamily === input.hookFamily ||
@@ -35,17 +39,9 @@ function objectPropKeys(node) {
     return keys;
 }
 /**
- * Family name contributed by a useXxx export binding.
- *
- * @param {string} name - The exported binding name.
- * @returns {string | null} The family name, or null when not a useXxx hook.
- */
-function hookFamily(name) {
-    const match = /^use([A-Z]\w*)$/u.exec(name);
-    return match === null ? null : (match[1] ?? null);
-}
-/**
- * Whether an aggregate's keys include the Provider and the useXxx hook.
+ * Whether an aggregate's keys include the Provider (the family's stateful root).
+ * The useXxx hook is the family's consumption API and is exported separately by
+ * convention, so it need not appear as a key of the aggregate.
  *
  * @param {Set<string>} keys - The aggregate object's property keys.
  * @returns {boolean} True when both the Provider and the hook are present.
@@ -84,10 +80,9 @@ export const requireDotNotationExportsRule = defineRule({
         const recordName = (entry) => {
             if (reportNode === null)
                 reportNode = entry.node;
-            if (entry.name === "Provider")
-                providerBases.add("");
-            else if (entry.name.endsWith("Provider"))
-                providerBases.add(entry.name.slice(0, -"Provider".length));
+            if (isProviderName(entry.name)) {
+                providerBases.add(entry.name === "Provider" ? "" : entry.name.slice(0, -"Provider".length));
+            }
             const hf = hookFamily(entry.name);
             if (hf !== null)
                 hookFamilies.add(hf);
@@ -138,7 +133,7 @@ export const requireDotNotationExportsRule = defineRule({
                     if (!providerPresent)
                         continue;
                     const agg = aggregates.get(family);
-                    const ok = agg !== undefined && hasProviderKey(agg) && agg.has("use" + family);
+                    const ok = agg !== undefined && hasProviderKey(agg);
                     if (ok)
                         continue;
                     context.report({ node, messageId: "missingAggregate", data: { family } });

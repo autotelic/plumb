@@ -20,8 +20,13 @@ export const ExpenseCategory = {
 			filename: "a.ts",
 		},
 		{
+			code: `export function CounterProvider() {}`,
+			filename: "a.ts",
+		},
+		{
 			code: `export function CounterProvider() { return null; }
-export function useTheme() { return null; }`,
+export function useCounter() { return null; }
+export const Counter = { Provider: CounterProvider, Display: CounterProvider };`,
 			filename: "a.ts",
 		},
 	],
@@ -29,6 +34,13 @@ export function useTheme() { return null; }`,
 		{
 			code: `export function Provider() { return null; }
 export function useExpenseCategory() { return null; }`,
+			filename: "a.ts",
+			errors: [{ messageId: "missingAggregate" }],
+		},
+		{
+			code: `export function CounterProvider() { return null; }
+export function useCounter() { return null; }
+export const Counter = { Display: CounterProvider };`,
 			filename: "a.ts",
 			errors: [{ messageId: "missingAggregate" }],
 		},
