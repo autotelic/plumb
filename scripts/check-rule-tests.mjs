@@ -23,7 +23,7 @@ async function listRuleFiles(root) {
 	return files;
 }
 
-const ruleDirs = [join(srcRoot, "rules"), join(srcRoot, "effect", "rules"), join(srcRoot, "meta", "rules")];
+const ruleDirs = [join(srcRoot, "rules"), join(srcRoot, "effect", "rules"), join(srcRoot, "meta", "rules"), join(srcRoot, "react", "rules")];
 let missing = 0;
 for (const dir of ruleDirs) {
 	for (const ruleFile of await listRuleFiles(dir)) {

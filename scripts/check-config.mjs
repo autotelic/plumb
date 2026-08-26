@@ -21,6 +21,7 @@ const PLUGINS = {
 	plumb: { entry: "src/index.ts", required: true },
 	"plumb-meta": { entry: "src/meta/index.ts", required: true },
 	"plumb-effect": { entry: "src/effect/index.ts", required: false },
+	"plumb-react": { entry: "src/react/index.ts", required: false },
 };
 
 let failures = 0;
@@ -57,11 +58,13 @@ const entryFiles = {
 	plumb: join(root, "src/index.ts"),
 	"plumb-meta": join(root, "src/meta/index.ts"),
 	"plumb-effect": join(root, "src/effect/index.ts"),
+	"plumb-react": join(root, "src/react/index.ts"),
 };
 const ruleDirs = [
 	[join(root, "src/rules"), "plumb"],
 	[join(root, "src/effect/rules"), "plumb-effect"],
 	[join(root, "src/meta/rules"), "plumb-meta"],
+	[join(root, "src/react/rules"), "plumb-react"],
 ];
 for (const [dir, plugin] of ruleDirs) {
 	const entryText = await readFile(entryFiles[plugin], "utf8");
@@ -80,7 +83,7 @@ for (const [dir, plugin] of ruleDirs) {
 const configPath = join(root, "oxlint.config.ts");
 const configText = await readFile(configPath, "utf8");
 
-const entryRe = /^[ \t]*"(plumb|plumb-effect|plumb-meta)\/([a-z0-9-]+)":\s*"(error|warn|off)"([^\n]*)/gm;
+const entryRe = /^[ \t]*"(plumb|plumb-effect|plumb-meta|plumb-react)\/([a-z0-9-]+)":\s*"(error|warn|off)"([^\n]*)/gm;
 const configured = new Map(); // "plugin/rule" -> {severity, allowMarker, line}
 for (const match of configText.matchAll(entryRe)) {
 	const [, plugin, rule, severity, rest] = match;

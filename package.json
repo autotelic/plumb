@@ -14,7 +14,8 @@
     ".": "./dist/index.js",
     "./effect": "./dist/effect/index.js",
     "./meta": "./dist/meta/index.js",
-    "./testing": "./dist/testing/index.js"
+    "./testing": "./dist/testing/index.js",
+    "./react": "./dist/react/index.js"
   },
   "scripts": {
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm check:rule-tests && pnpm check:config",

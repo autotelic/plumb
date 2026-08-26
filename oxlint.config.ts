@@ -10,6 +10,7 @@ export default defineConfig({
   jsPlugins: [
     { name: "plumb", specifier: "./src/index.ts" },
     { name: "plumb-meta", specifier: "./src/meta/index.ts" },
+    { name: "plumb-react", specifier: "./src/react/index.ts" },
   ],
   rules: {
     // plumb: every rule this repo ships, enforced on itself.
@@ -66,6 +67,12 @@ export default defineConfig({
     "plumb-meta/prefer-before-file-scope": "error",
     "plumb-meta/require-create-once": "error",
     "plumb-meta/no-disable-directives": "error",
+
+    // plumb-react: opt-in React composition rules (the "perfect component" contract).
+    "plumb-react/require-tripartite-context": "error",
+    "plumb-react/require-guarded-context-hook": "error",
+    "plumb-react/require-dot-notation-exports": "error",
+    "plumb-react/use-encapsulation": "error",
 
     // regexp: flag-sensitive syntax must fail loudly, not silently change meaning.
     "require-unicode-regexp": "error",
