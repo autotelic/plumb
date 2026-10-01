@@ -65,4 +65,43 @@ describe("testableRule", () => {
 		programExit();
 		expect(calls).toEqual(["rule-exit", "after"]);
 	});
+
+	it("calls createOnce once across files and before once per file, like native oxlint", () => {
+		const calls: string[] = [];
+		const rule = defineRule({
+			meta: { messages: {} },
+			createOnce() {
+				calls.push("createOnce");
+				return {
+					before() {
+						calls.push("before");
+					},
+				};
+			},
+		});
+		// SAFETY: structural view of the adapted rule for direct invocation.
+		const adapted = testableRule(rule) as unknown as { create(context: never): unknown };
+		adapted.create({} as never);
+		adapted.create({} as never);
+		expect(calls).toEqual(["createOnce", "before", "before"]);
+	});
+
+	it("routes context reads to the file currently being linted", () => {
+		const seen: string[] = [];
+		const rule = defineRule({
+			meta: { messages: {} },
+			createOnce(context) {
+				return {
+					before() {
+						seen.push(context.filename);
+					},
+				};
+			},
+		});
+		// SAFETY: structural view of the adapted rule for direct invocation.
+		const adapted = testableRule(rule) as unknown as { create(context: never): unknown };
+		adapted.create({ filename: "a.ts" } as never);
+		adapted.create({ filename: "b.ts" } as never);
+		expect(seen).toEqual(["a.ts", "b.ts"]);
+	});
 });
