@@ -4,7 +4,7 @@ import type { ESTree } from "@oxlint/plugins";
 
 import { ancestorsOf } from "../../shared/ancestors.ts";
 
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$|\/test\//u;
 
 const EQUALITY_OPERATORS = new Set(["==", "===", "!=", "!=="]);
 

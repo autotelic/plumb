@@ -19,8 +19,10 @@ tester.run(
 			{ code: "const query = 'SELECT * FROM users';", filename: "a.ts" },
 			{ code: "knex('users').where('id', id)", filename: "a.ts" },
 			{ code: "const msg = `Hello ${name}`;", filename: "a.ts" },
+			{ code: "const query = `SELECT * FROM users WHERE id = ${userId}`;", filename: "src/users.test.ts" },
 		],
 		invalid: [
+			{ code: "const query = `SELECT * FROM users WHERE id = ${userId}`;", filename: "src/latest.ts", errors: [{ messageId: "sqlInterpolation" }] },
 			{ code: "const query = `SELECT * FROM users WHERE id = ${userId}`;", filename: "a.ts", errors: [{ messageId: "sqlInterpolation" }] },
 			{ code: "const query = `INSERT INTO logs (msg) VALUES (${message})`;", filename: "a.ts", errors: [{ messageId: "sqlInterpolation" }] },
 			{ code: "const query = `UPDATE users SET name = ${name} WHERE id = ${id}`;", filename: "a.ts", errors: [{ messageId: "sqlInterpolation" }] },

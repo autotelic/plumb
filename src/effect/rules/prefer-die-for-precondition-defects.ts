@@ -4,7 +4,7 @@ import type { ESTree } from "@oxlint/plugins";
 import { readField } from "../../shared/structural.ts";
 import { ancestorsOf } from "../../shared/ancestors.ts";
 
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$|\/test\//u;
 
 /** Unwrap a tuple element to the type node it contributes to the annotation walk.
  *

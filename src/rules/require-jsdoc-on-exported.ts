@@ -4,7 +4,7 @@ import type { ESTree, SourceCode } from "@oxlint/plugins";
 
 import { getAllComments } from "../shared/structural.ts";
 
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 
 interface CommentLike {
 	type: string;

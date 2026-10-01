@@ -4,7 +4,7 @@ import type { ESTree } from "@oxlint/plugins";
 import { firstOptionRecord } from "../shared/rule-options.ts";
 import { isRecordObject, isString } from "../shared/structural.ts";
 
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 
 /** Generic built-in errors: untyped, prose-only, and invisible to tag-based handling. */
 const BUILTIN_ERRORS: ReadonlySet<string> = new Set([

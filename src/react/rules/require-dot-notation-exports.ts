@@ -6,7 +6,7 @@ import { isString } from "../../shared/structural.ts";
 
 import { hookFamily, isProviderName } from "../role.ts";
 
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 
 /**
  * Whether a component family (a Provider plus a useXxx hook sharing one family

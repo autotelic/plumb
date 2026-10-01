@@ -6,7 +6,7 @@ import { readField } from "../../shared/structural.ts";
 
 const PREDICATE_NAME = /^is[A-Z]/u;
 
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 
 /** True for a logical chain (>= 2 operands) whose every leaf is a domain-predicate call.
  *

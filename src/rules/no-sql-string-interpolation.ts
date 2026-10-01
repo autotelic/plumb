@@ -2,7 +2,7 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
 
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 
 /**
  * SQL keywords that suggest a string is a query. Case-insensitive match
@@ -56,7 +56,7 @@ export const noSqlStringInterpolationRule = defineRule({
 	createOnce(context) {
 		return {
 			before() {
-				if (TEST_FILE.test(context.filename.replaceAll("\\\\", "/"))) return false;
+				if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
 			},
 			TemplateLiteral(node) {
 				if (node.expressions.length === 0) return;

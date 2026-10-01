@@ -4,7 +4,7 @@ import type { ESTree } from "@oxlint/plugins";
 
 const NONDETERMINISTIC_MEMBERS = new Set(["getRandomValues", "random", "randomUUID", "now"]);
 
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$|\/test\//u;
 
 function memberChain(node: ESTree.Node): string[] {
 	if (node.type === "MemberExpression" && !node.computed) {

@@ -6,7 +6,7 @@ import { ancestorsOf } from "../../shared/ancestors.ts";
 
 import { isHookName } from "../role.ts";
 
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 
 /**
  * Whether a custom context hook that reads context must be reported for

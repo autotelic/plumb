@@ -4,7 +4,7 @@ import type { ESTree } from "@oxlint/plugins";
 
 import { type CommentLike, getAllComments } from "../shared/structural.ts";
 
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 
 /** Directive and safety comments are tooling contracts, not prose. */
 const EXEMPT = /^(?:SAFETY:|eslint|oxlint|@ts-|ts-check|jscpd)/iu;

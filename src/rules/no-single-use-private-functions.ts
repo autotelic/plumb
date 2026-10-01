@@ -6,7 +6,7 @@ import { ancestorsOf } from "../shared/ancestors.ts";
 
 import { isString } from "../shared/structural.ts";
 
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 
 type DeclaredVariable = ReturnType<SourceCode["getDeclaredVariables"]>[number];
 

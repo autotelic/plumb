@@ -5,7 +5,7 @@ import type { ESTree } from "@oxlint/plugins";
 import { firstOptionRecord } from "../../shared/rule-options.ts";
 import { isString } from "../../shared/structural.ts";
 
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$|\/test\//u;
 
 /** Object names that suggest external input: request bodies, params, etc. */
 const DEFAULT_INPUT_NAMES: ReadonlySet<string> = new Set([
@@ -85,7 +85,7 @@ export const noNullishDefaultOnPartialInputRule = defineRule({
 		for (const name of allowed) inputNames.delete(name);
 		return {
 			before() {
-				if (TEST_FILE.test(context.filename.replaceAll("\\\\", "/"))) return false;
+				if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
 			},
 			LogicalExpression(node) {
 				if (node.operator !== "??") return;

@@ -21,8 +21,10 @@ tester.run(
 			{ code: "body.field ?? defaultValue", filename: "a.ts" },
 			{ code: "params.id ?? fallback()", filename: "a.ts" },
 			{ code: "body['field'] ?? false", filename: "a.ts" },
+			{ code: "body.is_active ?? false", filename: "C:\\repo\\test\\helpers.ts" },
 		],
 		invalid: [
+			{ code: "body.is_active ?? false", filename: "src/latest.ts", errors: [{ messageId: "nullishDefaultOnPartialInput" }] },
 			{ code: "body.is_active ?? false", filename: "a.ts", errors: [{ messageId: "nullishDefaultOnPartialInput" }] },
 			{ code: "params.page ?? 1", filename: "a.ts", errors: [{ messageId: "nullishDefaultOnPartialInput" }] },
 			{ code: "query.limit ?? 25", filename: "a.ts", errors: [{ messageId: "nullishDefaultOnPartialInput" }] },

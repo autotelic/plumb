@@ -6,7 +6,7 @@ import { isString } from "../../shared/structural.ts";
 
 const PROVISION_METHODS = new Set(["provide", "provideMerge"]);
 
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$|\/test\//u;
 
 /** Multiple provision stages in one pipe entangle dependency tiers; combine independent layers or name each stage.
  *
