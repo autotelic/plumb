@@ -7,7 +7,7 @@ import { readField } from "../../shared/structural.ts";
 
 import { isProviderName } from "../role.ts";
 
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 
 /** Pattern identifying custom hooks (names starting with `use`). */
 const HOOK_PATTERN = /^use/u;

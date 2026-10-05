@@ -4,7 +4,7 @@ import type { ESTree } from "@oxlint/plugins";
 
 import { isString } from "../../shared/structural.ts";
 
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 
 /** The three required keys of a context value type. */
 const REQUIRED_KEYS = ["state", "actions", "meta"] as const;

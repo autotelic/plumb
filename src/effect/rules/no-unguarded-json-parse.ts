@@ -4,7 +4,7 @@ import type { ESTree, SourceCode } from "@oxlint/plugins";
 import { ancestorsOf } from "../../shared/ancestors.ts";
 import { readField } from "../../shared/structural.ts";
 
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$|\/test\//u;
 
 const commentOwnerKinds = new Set([
 	"ExpressionStatement",

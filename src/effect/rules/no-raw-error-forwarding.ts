@@ -4,7 +4,7 @@ import type { ESTree, SourceCode } from "@oxlint/plugins";
 
 import { ancestorsOf } from "../../shared/ancestors.ts";
 
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$|\/test\//u;
 
 /** Error properties that carry internal details and must not be forwarded raw. */
 const ERROR_PROPS: ReadonlySet<string> = new Set(["message", "stack"]);
@@ -72,7 +72,7 @@ export const noRawErrorForwardingRule = defineRule({
 		const catchParamStack: Array<ReadonlySet<string>> = [];
 		return {
 			before() {
-				if (TEST_FILE.test(context.filename.replaceAll("\\\\", "/"))) return false;
+				if (TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
 			},
 			CatchClause(node) {
 				const param = node.param;

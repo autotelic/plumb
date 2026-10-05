@@ -4,7 +4,7 @@ import type { ESTree } from "@oxlint/plugins";
 import { childNodes } from "../../shared/child-nodes.ts";
 import { readField } from "../../shared/structural.ts";
 
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 
 type FunctionLike = ESTree.ArrowFunctionExpression | ESTree.Function;
 

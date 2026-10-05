@@ -2,7 +2,7 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
 
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$|\/test\//u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$|\/test\//u;
 
 /** The exported name declared by this statement, if any.
  *

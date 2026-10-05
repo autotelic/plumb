@@ -6,7 +6,7 @@ import { readField } from "../shared/structural.ts";
 
 import { ancestorsOf } from "../shared/ancestors.ts";
 
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 
 const DEFAULT_MAX_PARAMS = 1;
 

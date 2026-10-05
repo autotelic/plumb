@@ -2,7 +2,7 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
 
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 
 /**
  * decodeUnknownOption collapses every schema mismatch into None, discarding

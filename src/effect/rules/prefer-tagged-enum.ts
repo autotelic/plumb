@@ -3,7 +3,7 @@ import { defineRule } from "@oxlint/plugins";
 import type { ESTree } from "@oxlint/plugins";
 import { isRecordObject, isString } from "../../shared/structural.ts";
 
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 
 /** Whether a type-literal member declares a literal-typed `_tag` property.
  *

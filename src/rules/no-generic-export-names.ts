@@ -42,7 +42,7 @@ const GENERIC_TERMS: ReadonlySet<string> = new Set([
 	"tmp",
 ]);
 
-const TEST_FILE = /.(?:test|spec).[cm]?[jt]sx?$/u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 
 /** Split an identifier into its words across camelCase and separators.
  *

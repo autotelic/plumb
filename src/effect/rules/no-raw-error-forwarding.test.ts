@@ -21,8 +21,10 @@ tester.run(
 			{ code: "try {} catch (e) { console.error(e.message); }", filename: "a.ts" },
 			{ code: "try {} catch (e) { logger.error('context', e); }", filename: "a.ts" },
 			{ code: "try {} catch (e) { throw e; }", filename: "a.ts" },
+			{ code: "try {} catch (e) { throw new Error(e.message); }", filename: "C:\\repo\\test\\helpers.ts" },
 		],
 		invalid: [
+			{ code: "try {} catch (e) { throw new Error(e.message); }", filename: "src/latest.ts", errors: [{ messageId: "rawErrorForwarding" }] },
 			{ code: "try {} catch (e) { throw new Error(e.message); }", filename: "a.ts", errors: [{ messageId: "rawErrorForwarding" }] },
 			{ code: "try {} catch (err) { return { error: err.message }; }", filename: "a.ts", errors: [{ messageId: "rawErrorForwarding" }] },
 			{ code: "try {} catch (e) { callback(e.stack); }", filename: "a.ts", errors: [{ messageId: "rawErrorForwarding" }] },
