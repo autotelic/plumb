@@ -15,7 +15,8 @@
     "./effect": "./dist/effect/index.js",
     "./meta": "./dist/meta/index.js",
     "./testing": "./dist/testing/index.js",
-    "./react": "./dist/react/index.js"
+    "./react": "./dist/react/index.js",
+    "./configs": "./dist/configs/recommended-rules.js"
   },
   "scripts": {
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm check:rule-tests && pnpm check:config",
@@ -31,6 +32,8 @@
   },
   "devDependencies": {
     "@types/node": "24.13.3",
+    "@typescript-eslint/parser": "^8.71.0",
+    "eslint": "^10.11.0",
     "fast-check": "^4.9.0",
     "oxlint": "1.79.0",
     "typescript": "5.9.3",
