@@ -34,12 +34,12 @@ rules: {
 },
 ```
 
-If your setup does not resolve package exports for plugin specifiers, point directly at the source files instead:
+If your setup does not resolve package exports for plugin specifiers, point directly at the compiled files instead (the package ships `dist/` only):
 
 ```ts
 jsPlugins: [
-  { name: "plumb", specifier: "./node_modules/@autotelic/plumb/src/index.ts" },
-  { name: "plumb-effect", specifier: "./node_modules/@autotelic/plumb/src/effect/index.ts" },
+  { name: "plumb", specifier: "./node_modules/@autotelic/plumb/dist/index.js" },
+  { name: "plumb-effect", specifier: "./node_modules/@autotelic/plumb/dist/effect/index.js" },
 ],
 ignorePatterns: ["node_modules/**"],
 ```
@@ -104,11 +104,11 @@ pnpm up @autotelic/plumb          # bump to the latest published version
 
 ## Releasing (maintainers)
 
-Releases publish to public npm automatically when a GitHub Release is published; the `Publish` workflow runs `pnpm check`, then publishes with provenance via npm trusted publishing (no stored npm token).
+Releases publish to public npm automatically when a GitHub Release is published; the `Publish` workflow runs `pnpm check` and `pnpm build`, then runs `npm publish` authenticated with the `NPM_PUBLISH_TOKEN` repository secret.
 
 1. Update `version` in `package.json` and merge.
 2. Create a GitHub Release for `vX.Y.Z`.
-3. The workflow publishes to npmjs; verify on the release page.
+3. The workflow publishes to npmjs; verify the package version on npm.
 
 ## Development
 
