@@ -47,11 +47,12 @@ export function createTester(): RuleTester {
  * Adapt a `createOnce` rule for Oxlint's RuleTester.
  *
  * RuleTester drives rules through their ESLint-compatible `create` method and
- * does not understand `before`/`after` lifecycle hooks. The adapter invokes
- * `createOnce` once per linted file (fresh state per file, exactly like native
- * Oxlint), honours the skip contract (`before` returning `false` skips the
- * file), and chains the rule's own `Program:exit` visitor with the after hook
- * instead of clobbering it.
+ * does not understand `before`/`after` lifecycle hooks. Like native Oxlint, the
+ * adapter invokes `createOnce` once and reuses its visitors for every linted
+ * file, so state a rule forgets to reset in `before` leaks between test cases
+ * exactly as it would leak between files in a real run. It also honours the
+ * skip contract (`before` returning `false` skips the file), and chains the
+ * rule's own `Program:exit` visitor with the after hook instead of clobbering it.
  *
  * @param {CreateOnceRule | Rule} rule - The createOnce-style rule to adapt. A
  * rule already in ESLint-style passes through untouched.
@@ -59,10 +60,27 @@ export function createTester(): RuleTester {
  */
 export function testableRule(rule: Rule): Rule {
 	if (!isCreateOnceRule(rule)) return rule;
+	type Context = Parameters<CreateOnceRule["createOnce"]>[0];
+	let currentContext!: Context;
+	const sharedContext = new Proxy(
+		{},
+		{
+			get(_target, key) {
+				// SAFETY: the proxy stands in for the per-file context, so every key
+				// read is a key of that context.
+				const value: unknown = currentContext[key as keyof Context];
+				return value instanceof Function ? value.bind(currentContext) : value;
+			},
+		},
+	);
+	let hooks: ReturnType<CreateOnceRule["createOnce"]> | undefined;
 	const adapter = {
 		meta: rule.meta,
-		create(context: Parameters<CreateOnceRule["createOnce"]>[0]) {
-			const { after, before, ...visitor } = rule.createOnce(context);
+		create(context: Context) {
+			currentContext = context;
+			// SAFETY: the proxy forwards every read to the current file's context.
+			hooks ??= rule.createOnce(sharedContext as Context);
+			const { after, before, ...visitor } = hooks;
 			// SAFETY: visitor fragments come from this plugin's own createOnce
 			// contract; method keys map one-to-one onto the tester's call shape.
 			const visitors = visitor as VisitorRecord;
