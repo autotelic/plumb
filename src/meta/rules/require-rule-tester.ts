@@ -2,7 +2,7 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
 
-const RULE_TEST_FILE = /[/\\](?:rules|effect[/\\]rules|meta[/\\]rules)[/\\][^/\\]+\.test\.[cm]?[jt]sx?$/u;
+const RULE_TEST_FILE = /[/\\](?:rules|(?:effect|meta|react|ui)[/\\]rules)[/\\][^/\\]+\.test\.[cm]?[jt]sx?$/u;
 
 /** Tests for lint rules belong in Oxlint's RuleTester: valid/invalid cases with message and span assertions. */
 export const requireRuleTesterRule = defineRule({
