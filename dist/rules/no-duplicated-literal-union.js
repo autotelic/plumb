@@ -5,7 +5,7 @@ import { isRecordObject, isString } from "../shared/structural.js";
  * @param {ESTree.TSType} annotation - The annotation to inspect.
  * @returns {string[] | null} Sorted literal members, or null when not a literal union.
  */
-function literalUnionKey(annotation) {
+export function literalUnionKey(annotation) {
     const types = annotation.type === "TSUnionType" ? annotation.types : [annotation];
     const literals = [];
     for (const member of types) {
@@ -36,6 +36,10 @@ export const noDuplicatedLiteralUnionRule = defineRule({
         const seen = new Map();
         const duplicates = new Map();
         return {
+            before() {
+                seen.clear();
+                duplicates.clear();
+            },
             TSTypeAliasDeclaration(node) {
                 const key = literalUnionKey(node.typeAnnotation);
                 if (key === null)

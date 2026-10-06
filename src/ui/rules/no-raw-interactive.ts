@@ -53,7 +53,20 @@ export function interactiveVerdict(query: {
 	if (tag === null || !query.policy.tags.has(tag)) return { primitive: "", report: false };
 	if (query.policy.allowNames.includes(tag)) return { primitive: "", report: false };
 	const configured = query.policy.replacements[tag];
-	return { primitive: configured ?? "", report: true };
+	if (configured !== undefined) {
+		return { primitive: configured, report: true };
+	}
+	return { primitive: "the design system's matching primitive", report: true };
+}
+
+/**
+ * The advice sentence for a raw interactive element.
+ *
+ * @param {string} primitive - The configured primitive, or the generic fallback.
+ * @returns {string} The sentence appended to the finding.
+ */
+function adviceFor(primitive: string): string {
+	return ` Use \`<${primitive}>\`; the primitive decides focus, disabled, and keyboard behaviour once.`;
 }
 
 /**
@@ -74,7 +87,7 @@ export const noRawInteractiveRule = defineRule({
 		},
 		messages: {
 			rawInteractiveTag:
-				"`<{{tag}}>` is a raw interactive element.{{primitive}} Use the corresponding primitive so focus, disabled, and keyboard behaviour are decided once.",
+				"`<{{tag}}>` is a raw interactive element.{{advice}}",
 		},
 		schema: [
 			{
@@ -118,11 +131,10 @@ export const noRawInteractiveRule = defineRule({
 			JSXOpeningElement(node) {
 				const verdict = interactiveVerdict({ node, policy });
 				if (!verdict.report) return;
-				const replacement = verdict.primitive === "" ? "" : ` Use \`<${verdict.primitive}>\`.`;
 				context.report({
 					node,
 					messageId: "rawInteractiveTag",
-					data: { tag: intrinsicNameOf(node) ?? "", primitive: replacement },
+					data: { tag: intrinsicNameOf(node) ?? "", advice: adviceFor(verdict.primitive) },
 				});
 			},
 		};
