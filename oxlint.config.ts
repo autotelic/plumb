@@ -11,6 +11,7 @@ export default defineConfig({
     { name: "plumb", specifier: "./src/index.ts" },
     { name: "plumb-meta", specifier: "./src/meta/index.ts" },
     { name: "plumb-react", specifier: "./src/react/index.ts" },
+    { name: "plumb-ui", specifier: "./src/ui/index.ts" },
   ],
   rules: {
     // plumb: every rule this repo ships, enforced on itself.
@@ -74,6 +75,17 @@ export default defineConfig({
     "plumb-react/require-guarded-context-hook": "error",
     "plumb-react/require-dot-notation-exports": "error",
     "plumb-react/use-encapsulation": "error",
+
+    // plumb-ui: UI design-system contract. The vocabulary (token families, tag
+    // policy, catalog path) is per-project; this repo ships the rules, not a
+    // palette, so every rule runs against its own defaults here.
+    "plumb-ui/no-off-token-color": "error",
+    "plumb-ui/no-arbitrary-value": "error",
+    "plumb-ui/no-raw-html-layout": "error",
+    "plumb-ui/no-raw-interactive": "error",
+    "plumb-ui/no-local-copy-of-shared": "error",
+    "plumb-ui/no-misplaced-local": "error",
+    "plumb-ui/require-catalog-entry": "error",
 
     // regexp: flag-sensitive syntax must fail loudly, not silently change meaning.
     "require-unicode-regexp": "error",

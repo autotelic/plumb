@@ -8,10 +8,12 @@ import type { Rule } from "@oxlint/plugins";
 import plumbPlugin from "../index.ts";
 import plumbEffectPlugin from "../effect/index.ts";
 import plumbReactPlugin from "../react/index.ts";
+import plumbUiPlugin from "../ui/index.ts";
 import {
 	plumbEffectRecommendedRules,
 	plumbReactRecommendedRules,
 	plumbRecommendedRules,
+	plumbUiRecommendedRules,
 	recommendedRulesFor,
 } from "./recommended-rules.ts";
 
@@ -35,6 +37,7 @@ describe("recommendedRulesFor", () => {
 		expect(Object.keys(plumbRecommendedRules)).toHaveLength(Object.keys(plumbPlugin.rules).length);
 		expect(Object.keys(plumbEffectRecommendedRules)).toHaveLength(Object.keys(plumbEffectPlugin.rules).length);
 		expect(Object.keys(plumbReactRecommendedRules)).toHaveLength(Object.keys(plumbReactPlugin.rules).length);
+		expect(Object.keys(plumbUiRecommendedRules)).toHaveLength(Object.keys(plumbUiPlugin.rules).length);
 	});
 });
 
@@ -46,6 +49,7 @@ describe("running under ESLint", () => {
 			plumb: plumbPlugin,
 			"plumb-effect": plumbEffectPlugin,
 			"plumb-react": plumbReactPlugin,
+			"plumb-ui": plumbUiPlugin,
 		} as unknown as NonNullable<Linter.Config["plugins"]>;
 		const linter = new Linter({ configType: "flat" });
 		const messages = linter.verify(
@@ -55,7 +59,12 @@ describe("running under ESLint", () => {
 					files: ["**/*.ts"],
 					languageOptions: { parser: tsParser },
 					plugins,
-					rules: { ...plumbRecommendedRules, ...plumbEffectRecommendedRules, ...plumbReactRecommendedRules },
+					rules: {
+						...plumbRecommendedRules,
+						...plumbEffectRecommendedRules,
+						...plumbReactRecommendedRules,
+						...plumbUiRecommendedRules,
+					},
 				},
 			],
 			"src/aliases.ts",

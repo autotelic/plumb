@@ -3,6 +3,7 @@ import type { Plugin } from "@oxlint/plugins";
 import plumbPlugin from "../index.ts";
 import plumbEffectPlugin from "../effect/index.ts";
 import plumbReactPlugin from "../react/index.ts";
+import plumbUiPlugin from "../ui/index.ts";
 
 /** The parts of a plugin a shared rule set is derived from. */
 type RuleSetSource = Pick<Plugin, "meta" | "rules">;
@@ -29,3 +30,6 @@ export const plumbEffectRecommendedRules = recommendedRulesFor(plumbEffectPlugin
 
 /** Every `plumb-react` rule at `error`; enable only in React repos. */
 export const plumbReactRecommendedRules = recommendedRulesFor(plumbReactPlugin);
+
+/** Every `plumb-ui` rule at `error`; enable only in repos with a UI design system. */
+export const plumbUiRecommendedRules = recommendedRulesFor(plumbUiPlugin);
