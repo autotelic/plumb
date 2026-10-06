@@ -6,6 +6,10 @@
  * by this module's single purpose. No other rule file should inspect option
  * representations directly.
  */
+export interface StringLookup {
+	readonly [key: string]: string;
+}
+
 export interface OptionRecord {
 	readonly [key: string]: unknown;
 }
@@ -19,5 +23,39 @@ export interface OptionRecord {
 export function firstOptionRecord(options: readonly unknown[] | undefined): OptionRecord {
 	const first = options?.[0];
 	if (first === null || typeof first !== "object" || Array.isArray(first)) return {};
-	return first as Record<string, unknown>;
+return first as Record<string, unknown>;
+}
+
+/**
+ * Read a string-array option, ignoring absent entries and non-string members.
+ *
+ * Rule vocabulary lists (allowlists, banned tags, declared tokens) arrive as
+ * untyped JSON; a malformed member narrows to omission rather than to a crash in
+ * a lint rule mid-traversal.
+ *
+ * @param {OptionRecord} record - The decoded options record.
+ * @param {string} key - The option key to read.
+ * @returns {readonly string[]} The string members, or an empty list when absent.
+ */
+export function stringListOption(record: OptionRecord, key: string): readonly string[] {
+	const value = record[key];
+	if (!Array.isArray(value)) return [];
+	return value.filter((member) => typeof member === "string");
+}
+
+/**
+ * Read a string-valued record option (a lookup table such as tag replacements).
+ *
+ * @param {OptionRecord} record - The decoded options record.
+ * @param {string} key - The option key to read.
+ * @returns {Readonly<Record<string, string>>} The string-valued members, empty when absent.
+ */
+export function stringMapOption(record: OptionRecord, key: string): StringLookup {
+	const value = record[key];
+	if (value === null || typeof value !== "object" || Array.isArray(value)) return {};
+	const entries: Record<string, string> = {};
+	for (const [member, entry] of Object.entries(value)) {
+		if (typeof entry === "string") entries[member] = entry;
+	}
+	return entries;
 }
