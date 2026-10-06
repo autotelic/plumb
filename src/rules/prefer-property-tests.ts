@@ -25,6 +25,8 @@ export const preferPropertyTestsRule = defineRule({
 		let sawFastCheck = false;
 		return {
 			before() {
+				program = null;
+				sawFastCheck = false;
 				if (!TEST_FILE.test(context.filename.replaceAll("\\", "/"))) return false;
 			},
 			Program(node) {
