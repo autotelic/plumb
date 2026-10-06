@@ -288,7 +288,12 @@ function classStringsWithin(budget: WalkBudget): readonly ClassString[] {
 			element === null ? [] : descend({ node: element, depth: budget.depth }),
 		);
 	}
-	if (node.type === "CallExpression" && node.callee.type === "Identifier" && CLASS_HELPER_NAMES.has(node.callee.name)) {
+	if (node.type === "ObjectExpression") {
+		return node.properties.flatMap((property) =>
+			descend({ node: property.type === "Property" ? property.value : property.argument, depth: budget.depth }),
+		);
+	}
+	if (isClassHelperCall(node)) {
 		return node.arguments.flatMap((argument) => descend({ node: argument, depth: budget.depth }));
 	}
 	if (node.type === "JSXExpressionContainer") return descend({ node: node.expression, depth: budget.depth });
@@ -308,6 +313,49 @@ function classStringsWithin(budget: WalkBudget): readonly ClassString[] {
  */
 export function classStringsIn(node: ESTree.Node): readonly ClassString[] {
 	return classStringsWithin({ node, depth: MAX_EXPRESSION_DEPTH });
+}
+
+/**
+ * Whether a call is one of the helpers whose arguments are class names.
+ *
+ * @param {ESTree.Node} node - The candidate expression.
+ * @returns {boolean} True when the node is a \`clsx\`/\`cn\`/\`cva\`/\`twMerge\` call.
+ */
+export function isClassHelperCall(node: ESTree.Node): node is ESTree.CallExpression {
+	return (
+		node.type === "CallExpression" &&
+		node.callee.type === "Identifier" &&
+		CLASS_HELPER_NAMES.has(node.callee.name)
+	);
+}
+
+/** One utility token and the class string it was written in. */
+export interface UtilityHit {
+	readonly token: string;
+	readonly node: ESTree.Node;
+}
+
+/** Class strings plus the utility prefixes the configuration keeps legal. */
+export interface UtilityScan {
+	readonly classes: readonly ClassString[];
+	readonly allowTokens: readonly string[];
+}
+
+/**
+ * Every utility token in a set of class strings that the allowlist does not claim.
+ *
+ * @param {UtilityScan} scan - The class strings and the allowed utility prefixes.
+ * @returns {readonly UtilityHit[]} The surviving tokens, in source order.
+ */
+export function utilitiesIn(scan: UtilityScan): readonly UtilityHit[] {
+	const hits: UtilityHit[] = [];
+	for (const classString of scan.classes) {
+		for (const token of splitClassNames(classString.value)) {
+			if (isAllowlisted({ subject: token, patterns: scan.allowTokens })) continue;
+			hits.push({ token, node: classString.node });
+		}
+	}
+	return hits;
 }
 
 /**

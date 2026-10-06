@@ -44,6 +44,18 @@ export function stringListOption(record: OptionRecord, key: string): readonly st
 }
 
 /**
+ * Read a single string option, absent or malformed when it is not a string.
+ *
+ * @param {OptionRecord} record - The decoded options record.
+ * @param {string} key - The option key to read.
+ * @returns {string | null} The configured string, or null when absent.
+ */
+export function stringOption(record: OptionRecord, key: string): string | null {
+	const value = record[key];
+	return typeof value === "string" ? value : null;
+}
+
+/**
  * Read a string-valued record option (a lookup table such as tag replacements).
  *
  * @param {OptionRecord} record - The decoded options record.
