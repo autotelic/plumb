@@ -38,10 +38,7 @@ export function interactiveVerdict(query: {
 	if (tag === null || !query.policy.tags.has(tag)) return { primitive: "", report: false };
 	if (query.policy.allowNames.includes(tag)) return { primitive: "", report: false };
 	const configured = query.policy.replacements[tag];
-	if (configured !== undefined) {
-		return { primitive: configured, report: true };
-	}
-	return { primitive: "the design system's matching primitive", report: true };
+	return { primitive: configured ?? "", report: true };
 }
 
 /**
@@ -51,7 +48,8 @@ export function interactiveVerdict(query: {
  * @returns {string} The sentence appended to the finding.
  */
 function adviceFor(primitive: string): string {
-	return ` Use \`<${primitive}>\`; the primitive decides focus, disabled, and keyboard behaviour once.`;
+	const target = primitive === "" ? "the design system's matching primitive" : `\`<${primitive}>\``;
+	return ` Use ${target}; the primitive decides focus, disabled, and keyboard behaviour once.`;
 }
 
 /**

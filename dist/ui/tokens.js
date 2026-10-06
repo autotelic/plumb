@@ -102,8 +102,10 @@ export function splitClassNames(raw) {
  */
 export function utilityOf(token) {
     const colon = lastTopLevelColon(token);
-    const body = colon === -1 ? token : token.slice(colon + 1);
-    return body.startsWith("!") || body.startsWith("-") ? body.slice(1) : body;
+    let body = colon === -1 ? token : token.slice(colon + 1);
+    while (body.startsWith("!") || body.startsWith("-"))
+        body = body.slice(1);
+    return body;
 }
 /**
  * The family segment before the first top-level `-`, opacity slash dropped.

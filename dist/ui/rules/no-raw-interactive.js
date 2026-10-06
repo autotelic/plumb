@@ -20,10 +20,7 @@ export function interactiveVerdict(query) {
     if (query.policy.allowNames.includes(tag))
         return { primitive: "", report: false };
     const configured = query.policy.replacements[tag];
-    if (configured !== undefined) {
-        return { primitive: configured, report: true };
-    }
-    return { primitive: "the design system's matching primitive", report: true };
+    return { primitive: configured ?? "", report: true };
 }
 /**
  * The advice sentence for a raw interactive element.
@@ -32,7 +29,8 @@ export function interactiveVerdict(query) {
  * @returns {string} The sentence appended to the finding.
  */
 function adviceFor(primitive) {
-    return ` Use \`<${primitive}>\`; the primitive decides focus, disabled, and keyboard behaviour once.`;
+    const target = primitive === "" ? "the design system's matching primitive" : `\`<${primitive}>\``;
+    return ` Use ${target}; the primitive decides focus, disabled, and keyboard behaviour once.`;
 }
 /**
  * Raw interactive elements carry behaviour no design system has approved.
