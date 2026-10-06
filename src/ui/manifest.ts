@@ -219,6 +219,21 @@ export function relativePathOf(location: FileLocation): string {
 }
 
 /**
+ * A manifest whose local roots come from configuration when it declares none.
+ *
+ * The generated manifest is authoritative; the option exists so a project can
+ * adopt the rule before the generator emits that field.
+ *
+ * @param {UiManifest} manifest - The decoded manifest.
+ * @param {readonly string[]} roots - Configured local-component roots.
+ * @returns {UiManifest} The manifest with local roots filled in when it declared none.
+ */
+export function withLocalRoots(manifest: UiManifest, roots: readonly string[]): UiManifest {
+	if (roots.length === 0 || manifest.localRoots.length > 0) return manifest;
+	return { ...manifest, localRoots: roots };
+}
+
+/**
  * The catalog entry describing a file, matched by exact path then by suffix.
  *
  * @param {PathLookup} lookup - The manifest and the normalized file path.

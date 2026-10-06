@@ -56,6 +56,18 @@ export function stringOption(record: OptionRecord, key: string): string | null {
 }
 
 /**
+ * Read a finite number option, absent or malformed when it is not a number.
+ *
+ * @param {OptionRecord} record - The decoded options record.
+ * @param {string} key - The option key to read.
+ * @returns {number | null} The configured number, or null when absent or non-finite.
+ */
+export function numberOption(record: OptionRecord, key: string): number | null {
+	const value = record[key];
+	return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+/**
  * Read a string-valued record option (a lookup table such as tag replacements).
  *
  * @param {OptionRecord} record - The decoded options record.
