@@ -1,37 +1,22 @@
 import { defineRule } from "@oxlint/plugins";
 
 import { EMPTY_MANIFEST, createManifestCache } from "../manifest.ts";
-import { bannedTags, intrinsicNameOf } from "../elements.ts";
+import { intrinsicNameOf, isPathExempt, resolveTagPolicy } from "../elements.ts";
 import { scopeOf } from "../scope.ts";
-import { firstOptionRecord, stringListOption, stringMapOption } from "../../shared/rule-options.ts";
+import { firstOptionRecord } from "../../shared/rule-options.ts";
 
 import type { ESTree } from "@oxlint/plugins";
+import type { TagPolicy } from "../elements.ts";
 import type { FileScope } from "../scope.ts";
 
 /** Interactive elements whose behaviour and styling belong to primitives. */
 const DEFAULT_INTERACTIVE_TAGS: readonly string[] = ["a", "button", "input", "select", "textarea"];
 
-/** Option key listing the banned tags. */
-const TAGS_OPTION = "tags";
-
-/** Option key mapping tags to the primitive that replaces them. */
-const REPLACEMENTS_OPTION = "replacements";
-
-/** Option key listing tags that stay raw. */
-const ALLOW_NAMES_OPTION = "allowNames";
-
-/** Option key listing path prefixes exempt from the rule; primitives live here. */
-const ALLOW_PATHS_OPTION = "allowPaths";
-
 /** The scope a file carries before its first `before()` hook runs. */
 const UNSCOPED: FileScope = { path: "", isJsx: false, colors: [], manifest: EMPTY_MANIFEST };
 
 /** A JSX element plus the interactive-tag policy configured for the project. */
-export interface InteractivePolicy {
-	readonly tags: ReadonlySet<string>;
-	readonly replacements: Readonly<Record<string, string>>;
-	readonly allowNames: readonly string[];
-}
+export type InteractivePolicy = TagPolicy;
 
 /** Whether a raw interactive element should be reported, and what replaces it. */
 export interface InteractiveVerdict {
@@ -116,17 +101,9 @@ export const noRawInteractiveRule = defineRule({
 			before() {
 				const options = firstOptionRecord(context.options);
 				scope = scopeOf({ cwd: context.cwd, filename: context.filename, options, cache });
-				policy = {
-					tags: bannedTags({
-						tags: stringListOption(options, TAGS_OPTION),
-						fallback: DEFAULT_INTERACTIVE_TAGS,
-					}),
-					replacements: stringMapOption(options, REPLACEMENTS_OPTION),
-					allowNames: stringListOption(options, ALLOW_NAMES_OPTION),
-				};
+				policy = resolveTagPolicy({ options, fallback: DEFAULT_INTERACTIVE_TAGS });
 				if (!scope.isJsx) return false;
-				const allowPaths = stringListOption(options, ALLOW_PATHS_OPTION);
-				if (allowPaths.some((pattern) => scope.path.startsWith(pattern))) return false;
+				if (isPathExempt({ options, path: scope.path })) return false;
 			},
 			JSXOpeningElement(node) {
 				const verdict = interactiveVerdict({ node, policy });

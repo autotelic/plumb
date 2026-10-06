@@ -1,15 +1,12 @@
 import type { ESTree } from "@oxlint/plugins";
+import type { TagPolicy } from "../elements.ts";
 /** Whether a tag should be reported, and which primitive replaces it. */
 export interface LayoutVerdict {
     readonly primitive: string;
     readonly report: boolean;
 }
 /** A JSX element plus the tag policy configured for the project. */
-export interface LayoutPolicy {
-    readonly tags: ReadonlySet<string>;
-    readonly replacements: Readonly<Record<string, string>>;
-    readonly allowNames: readonly string[];
-}
+export type LayoutPolicy = TagPolicy;
 /**
  * The primitive a raw layout tag should be, or no finding at all.
  *

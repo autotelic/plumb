@@ -1,10 +1,7 @@
 import type { ESTree } from "@oxlint/plugins";
+import type { TagPolicy } from "../elements.ts";
 /** A JSX element plus the interactive-tag policy configured for the project. */
-export interface InteractivePolicy {
-    readonly tags: ReadonlySet<string>;
-    readonly replacements: Readonly<Record<string, string>>;
-    readonly allowNames: readonly string[];
-}
+export type InteractivePolicy = TagPolicy;
 /** Whether a raw interactive element should be reported, and what replaces it. */
 export interface InteractiveVerdict {
     readonly primitive: string;

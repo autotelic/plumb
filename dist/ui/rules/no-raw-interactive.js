@@ -1,18 +1,10 @@
 import { defineRule } from "@oxlint/plugins";
 import { EMPTY_MANIFEST, createManifestCache } from "../manifest.js";
-import { bannedTags, intrinsicNameOf } from "../elements.js";
+import { intrinsicNameOf, isPathExempt, resolveTagPolicy } from "../elements.js";
 import { scopeOf } from "../scope.js";
-import { firstOptionRecord, stringListOption, stringMapOption } from "../../shared/rule-options.js";
+import { firstOptionRecord } from "../../shared/rule-options.js";
 /** Interactive elements whose behaviour and styling belong to primitives. */
 const DEFAULT_INTERACTIVE_TAGS = ["a", "button", "input", "select", "textarea"];
-/** Option key listing the banned tags. */
-const TAGS_OPTION = "tags";
-/** Option key mapping tags to the primitive that replaces them. */
-const REPLACEMENTS_OPTION = "replacements";
-/** Option key listing tags that stay raw. */
-const ALLOW_NAMES_OPTION = "allowNames";
-/** Option key listing path prefixes exempt from the rule; primitives live here. */
-const ALLOW_PATHS_OPTION = "allowPaths";
 /** The scope a file carries before its first `before()` hook runs. */
 const UNSCOPED = { path: "", isJsx: false, colors: [], manifest: EMPTY_MANIFEST };
 /**
@@ -86,18 +78,10 @@ export const noRawInteractiveRule = defineRule({
             before() {
                 const options = firstOptionRecord(context.options);
                 scope = scopeOf({ cwd: context.cwd, filename: context.filename, options, cache });
-                policy = {
-                    tags: bannedTags({
-                        tags: stringListOption(options, TAGS_OPTION),
-                        fallback: DEFAULT_INTERACTIVE_TAGS,
-                    }),
-                    replacements: stringMapOption(options, REPLACEMENTS_OPTION),
-                    allowNames: stringListOption(options, ALLOW_NAMES_OPTION),
-                };
+                policy = resolveTagPolicy({ options, fallback: DEFAULT_INTERACTIVE_TAGS });
                 if (!scope.isJsx)
                     return false;
-                const allowPaths = stringListOption(options, ALLOW_PATHS_OPTION);
-                if (allowPaths.some((pattern) => scope.path.startsWith(pattern)))
+                if (isPathExempt({ options, path: scope.path }))
                     return false;
             },
             JSXOpeningElement(node) {
